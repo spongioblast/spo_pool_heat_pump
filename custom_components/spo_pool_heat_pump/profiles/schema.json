@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/spongioblast/spo_pool_heat_pump/profiles/schema.json",
+  "title": "spo_pool_heat_pump profile v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["identity", "link", "driver", "modes", "enums", "registers"],
+  "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "brand", "model", "verification"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "family": { "type": "string" },
+        "oem": { "type": "string" },
+        "app": { "type": "string" },
+        "also_sold_as": { "type": "array", "items": { "type": "string" } },
+        "verification": { "type": "string", "enum": ["verified", "community", "experimental"] },
+        "source": { "type": "string" },
+        "connector": { "type": "string" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baud", "parity", "stop_bits", "slaves"],
+      "properties": {
+        "baud": { "type": "integer" },
+        "parity": { "type": "string" },
+        "stop_bits": { "type": "integer" },
+        "slaves": { "type": "object" }
+      }
+    },
+    "driver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["pc1002_bus", "poll_master", "listen_only"] },
+        "write_targets": { "type": "array", "items": { "type": "string" } },
+        "default_write": { "type": "string" },
+        "power_also_write": { "type": "array", "items": { "type": "integer" } },
+        "broadcast": {
+          "type": "object",
+          "properties": { "start": { "type": "integer" }, "qty": { "type": "integer" } }
+        },
+        "settings": { "type": "object" },
+        "detect": { "type": "object" },
+        "reads": { "type": "array" },
+        "poll_slave": { "type": "integer" },
+        "poll_interval": { "type": "integer" },
+        "write_fc": { "type": "integer" }
+      }
+    },
+    "modes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["heat", "cool", "auto"] }
+    },
+    "enums": { "type": "object" },
+    "registers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["u16", "i16", "bool", "enum", "bits", "faults", "ascii", "bcd_hms"] },
+          "reg": { "type": "integer" },
+          "write": { "type": "integer" },
+          "regs": { "type": "array", "items": { "type": "integer" } },
+          "scale": { "type": "number" },
+          "unit": { "type": "string" },
+          "enum": { "type": "string" },
+          "bits": { "type": "object" },
+          "file": { "type": "string" },
+          "count": { "type": "integer" },
+          "block": { "type": "string" },
+          "offset": { "type": "integer" },
+          "transform": { "type": "string" },
+          "write_fc": { "type": "integer" },
+          "nonzero": { "type": "boolean" },
+          "codes": { "type": "object" },
+          "entity": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "service_menu": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "overrides": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "hz_max": { "type": "object" },
+    "fixtures": { "type": "object" },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "driver": { "properties": { "type": { "const": "pc1002_bus" } } } }
+      },
+      "then": {
+        "properties": {
+          "driver": {
+            "required": ["broadcast"],
+            "properties": {
+              "broadcast": {
+                "type": "object",
+                "required": ["start", "qty"],
+                "properties": {
+                  "start": { "type": "integer" },
+                  "qty": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

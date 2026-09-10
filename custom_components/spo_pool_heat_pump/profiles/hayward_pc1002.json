@@ -1,0 +1,242 @@
+{
+  "identity": {
+    "id": "hayward_pc1002",
+    "brand": "Hayward",
+    "model": "PC1002",
+    "family": "pc1002",
+    "app": "AquaTemp",
+    "also_sold_as": [
+      "Oasis",
+      "Warmpool",
+      "ECPI",
+      "irriPool"
+    ],
+    "verification": "community",
+    "source": "reference/REVIEW.md — Hayward ESPHome forks (untested on this repo)",
+    "connector": "RS-485 display bus"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {
+      "0": "broadcast",
+      "1": "panel",
+      "2": "second UI",
+      "99": "DTU"
+    }
+  },
+  "driver": {
+    "type": "pc1002_bus",
+    "write_targets": [
+      "dtu_99",
+      "slave2",
+      "panel_1"
+    ],
+    "default_write": "dtu_99",
+    "power_also_write": [
+      1014
+    ],
+    "detect": {
+      "family": "pc1002"
+    },
+    "broadcast": {
+      "start": 2001,
+      "qty": 90
+    },
+    "settings": {
+      "slave": 1,
+      "pages": [
+        {
+          "start": 1001,
+          "qty": 90
+        },
+        {
+          "start": 1091,
+          "qty": 90
+        },
+        {
+          "start": 1181,
+          "qty": 90
+        },
+        {
+          "start": 3001,
+          "qty": 30
+        }
+      ],
+      "idle_s": 0.05,
+      "timeout_s": 0.8,
+      "flags": {
+        "reg": 3011,
+        "bits": { "4": 1001, "16": 1091, "64": 1091, "32768": "all" }
+      }
+    }
+  },
+  "modes": [
+    "heat",
+    "cool",
+    "auto"
+  ],
+  "enums": {
+    "mode": {
+      "0": "cool",
+      "1": "heat",
+      "2": "auto"
+    },
+    "temp_unit": {
+      "0": "celsius",
+      "1": "fahrenheit"
+    }
+  },
+  "registers": {
+    "power": {
+      "reg": 2011,
+      "write": 1011,
+      "type": "bool"
+    },
+    "mode": {
+      "reg": 2012,
+      "write": 1012,
+      "enum": "mode",
+      "type": "enum"
+    },
+    "setpoint": {
+      "reg": 2013,
+      "write": 1013,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_cool": {
+      "write": 1135,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_heat": {
+      "write": 1136,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_auto": {
+      "write": 1137,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "silent": {
+      "reg": 2064,
+      "write": 1076,
+      "type": "bool",
+      "nonzero": true
+    },
+    "t_inlet": {
+      "reg": 2046,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_outlet": {
+      "reg": 2047,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_ambient": {
+      "reg": 2049,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "power_kw": {
+      "reg": 2055,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "energy_24h_kwh": {
+      "reg": 2057,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "comp_hz": {
+      "reg": 2021,
+      "type": "u16"
+    },
+    "fan_rpm": {
+      "reg": 2067,
+      "type": "u16"
+    },
+    "serial": {
+      "reg": 2001,
+      "type": "ascii",
+      "count": 7
+    },
+    "fw_display": {
+      "reg": 2089,
+      "type": "u16"
+    },
+    "fw_main": {
+      "reg": 2084,
+      "type": "u16"
+    },
+    "outputs": {
+      "reg": 2019,
+      "bits": {
+        "compressor": 0,
+        "water_pump": 1,
+        "four_way_valve": 2,
+        "high_fan": 3,
+        "low_fan": 4
+      },
+      "type": "bits"
+    },
+    "faults": {
+      "regs": [2074, 2075, 2076, 2077],
+      "type": "faults",
+      "file": "_faults_pc1002.json"
+    },
+    "clock": { "reg": 3015, "count": 3, "type": "bcd_hms" },
+    "t_suction": { "reg": 2045, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "low_pressure": { "reg": 2054, "type": "i16", "scale": 0.1, "unit": "bar",
+      "entity": { "platform": "sensor", "device_class": "pressure", "category": "diagnostic", "enabled": false } },
+    "superheat": { "reg": 2060, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "ac_voltage": { "reg": 2063, "type": "u16", "unit": "V",
+      "entity": { "platform": "sensor", "device_class": "voltage", "category": "diagnostic", "enabled": false } },
+    "dc_bus": { "reg": 2069, "type": "u16", "unit": "V",
+      "entity": { "platform": "sensor", "device_class": "voltage", "category": "diagnostic", "enabled": false } },
+    "phase_current": { "reg": 2022, "type": "u16", "scale": 0.1, "unit": "A",
+      "entity": { "platform": "sensor", "device_class": "current", "category": "diagnostic", "enabled": false } },
+    "ipm_temp": { "reg": 2023, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "eev_steps": { "reg": 2020, "type": "u16",
+      "entity": { "platform": "sensor", "category": "diagnostic", "enabled": false } },
+    "antifreeze": { "reg": 2065, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "t_coil_2": { "reg": 2072, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "comp_hz_target": { "reg": 2085, "type": "u16", "unit": "Hz",
+      "entity": { "platform": "sensor", "device_class": "frequency", "category": "diagnostic", "enabled": false } },
+    "cop": { "reg": 2040, "type": "i16", "scale": 0.1,
+      "entity": { "platform": "sensor", "category": "diagnostic", "enabled": false } },
+    "capacity": { "reg": 2041, "type": "u16",
+      "entity": { "platform": "sensor", "category": "diagnostic", "enabled": false } },
+    "switches": { "reg": 2034, "type": "bits",
+      "bits": { "high_pressure": 0, "low_pressure": 1, "flow_switch": 2, "remote": 3 },
+      "entity": { "platform": "binary_sensor", "category": "diagnostic", "enabled": false } }
+  },
+  "service_menu": {
+    "file": "_service_menu_pc1002.json"
+  },
+  "hz_max": {
+    "heat": "h08_max_freq_heat",
+    "cool": "h09_max_freq_cool",
+    "default": {
+      "cool": 55,
+      "heat": 90,
+      "auto": 90
+    }
+  },
+  "fixtures": {
+    "frames": {
+      "power_on": "63 10 03 F3 00 01 02 00 01 F1 31",
+      "mode_heat": "63 10 03 F4 00 01 02 00 01 F0 86"
+    }
+  },
+  "notes": "Same 2001 broadcast family as mida_cosma_pc1002. Replay uses the verified MIDA Cosma dump frames."
+}

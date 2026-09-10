@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+card-src/node_modules/
+ha-docker/config/*
+!ha-docker/config/configuration.yaml
+ha-docker/config/.storage/
+*.db

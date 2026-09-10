@@ -1,0 +1,194 @@
+/* Canonical pool-heatpump card stylesheet.
+   Mock host: .card.w3 inside tokens.css.
+   Lit host: same rules plus card-src/host.css; esbuild concatenates both. */
+
+/* tokens — --cold --warm; HA theme vars come from the host */
+.w3 {
+  --cold: #38b6ff;
+  --warm: #ff8a3d;
+  padding: 22px 24px 18px;
+  display: grid;
+  gap: 16px;
+}
+.w3 > * { min-width: 0; }
+
+/* chrome — grid: top, hero, target, facts, modes, .ib, .seg */
+.w3 .eyebrow {
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--secondary-text-color);
+  font-weight: 400;
+}
+.w3 .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.w3 .top .eyebrow:first-child { font-size: 15px; font-weight: 500; color: var(--primary-text-color); }
+.w3 .top .status-block { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+.w3 .top .status { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 12.5px; }
+.w3 .top .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.w3 .top .fault-why {
+  font-size: 12px;
+  line-height: 1.25;
+  color: #e53935;
+  max-width: min(220px, 52cqi);
+  text-align: right;
+}
+.w3 .hero { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 16px; }
+.w3 .num { font-weight: 300; letter-spacing: -.02em; line-height: .9; font-variant-numeric: tabular-nums; }
+.w3 .big .num { font-size: 64px; }
+.w3 .big .unit {
+  font-size: 26px;
+  font-weight: 200;
+  vertical-align: top;
+  position: relative;
+  top: 6px;
+  margin-left: 2px;
+  color: var(--secondary-text-color);
+}
+.w3 .target {
+  display: grid;
+  grid-template-columns: 32px auto 32px;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  justify-items: center;
+}
+.w3 .target .eyebrow { grid-column: 2; grid-row: 1; margin: 0; text-align: center; }
+.w3 .target .ib:first-of-type { grid-column: 1; grid-row: 2; }
+.w3 .target .val { grid-column: 2; grid-row: 2; }
+.w3 .target .ib:last-of-type { grid-column: 3; grid-row: 2; }
+.w3 .target .num { font-size: 32px; }
+.w3 .target .unit {
+  font-size: 16px;
+  font-weight: 200;
+  color: var(--secondary-text-color);
+  vertical-align: top;
+  position: relative;
+  top: 3px;
+}
+.w3 .ib {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--divider-color);
+  display: grid;
+  place-items: center;
+  color: var(--secondary-text-color);
+  transition: border-color .2s, background-color .2s;
+}
+.w3 .ib svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.w3 .ib:hover { border-color: color-mix(in srgb, var(--primary-text-color) 30%, transparent); }
+.w3 .ib.pw.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.w3 .ib.quiet.on { color: #2bb5a0; border-color: color-mix(in srgb, #2bb5a0 45%, transparent); background: color-mix(in srgb, #2bb5a0 8%, transparent); }
+.w3 .target .ib { width: 32px; height: 32px; }
+.w3 .seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--divider-color); }
+.w3 .seg button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--secondary-text-color);
+  line-height: 1;
+  transition: background-color .2s, color .2s;
+}
+.w3 .seg button.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.card[data-action="off"] .seg button.on { color: var(--secondary-text-color); background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+.w3 .modes { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--divider-color); padding-top: 14px; }
+.w3 .modes .sp { flex: 1; }
+.w3 .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+.w3 .fact { padding: 0 14px; border-left: 1px solid var(--divider-color); }
+.w3 .fact:first-child { padding-left: 0; border-left: 0; }
+.w3 .fact .v { font-size: 20px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
+.w3 .fact .v small { font-size: 11px; color: var(--secondary-text-color); margin-left: 3px; font-weight: 400; letter-spacing: 0; }
+.w3 .fact .eyebrow { margin-top: 2px; display: block; font-size: 12px; }
+
+/* drawing — shared SVG primitives */
+.w3 svg.dwg { width: 100%; height: auto; display: block; overflow: visible; }
+.dwg .ln { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 38%, transparent); stroke-width: 1; stroke-linejoin: round; stroke-linecap: round; }
+.dwg .thin { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 30%, transparent); stroke-width: .9; stroke-linecap: round; }
+.dwg .water { fill: color-mix(in srgb, var(--cold) 18%, transparent); }
+.card[data-action="off"] .dwg .water { fill: color-mix(in srgb, var(--primary-text-color) 6%, transparent); }
+.card[data-action="cooling"] .dwg .plume { filter: saturate(1.6) brightness(1.15); }
+.dwg text { font-family: var(--font); fill: var(--primary-text-color); }
+.dwg .k { letter-spacing: 0; text-transform: capitalize; fill: var(--secondary-text-color); font-weight: 400; font-size: 11px; }
+.dwg .v { font-weight: 400; letter-spacing: -.02em; font-size: 16px; }
+.dwg .v.warm { fill: var(--warm); }
+.dwg .v.cool { fill: var(--cold); }
+.dwg .halo { stroke: var(--card-background-color); stroke-width: 4px; paint-order: stroke fill; stroke-linejoin: round; }
+.dwg .tube { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; opacity: .22; }
+.dwg .core { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.dwg .tube.in, .dwg .core.in { stroke: var(--inC); }
+.dwg .tube.out, .dwg .core.out { stroke: var(--outC); }
+.dwg .dots { fill: none; stroke: #fff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 0 18; opacity: 0; }
+.card[data-pump="true"] .dwg .dots { opacity: .85; animation: dots 2.4s linear infinite; }
+.card[data-silent="true"] .dwg .dots { animation-duration: 4s; }
+.dwg .plume { opacity: 0; }
+.card[data-pump="true"] .dwg .plume { opacity: 1; animation: plume 3.2s ease-in-out infinite alternate; }
+.dwg .led { fill: var(--accent); filter: drop-shadow(0 0 4px var(--accent)); }
+.card[data-action="off"] .dwg .led { filter: none; opacity: .35; }
+.dwg .surface { stroke: color-mix(in srgb, var(--primary-text-color) 42%, transparent); animation: surf 6s ease-in-out infinite alternate; }
+.dwg .petal { fill: color-mix(in srgb, var(--primary-text-color) 42%, transparent); }
+.dwg .hub { fill: var(--card-background-color); stroke: color-mix(in srgb, var(--primary-text-color) 55%, transparent); stroke-width: 1.2; }
+.dwg .unitfill { fill: color-mix(in srgb, var(--primary-text-color) 3.5%, transparent); }
+.card[data-action="heating"] .dwg .unitfill { fill: color-mix(in srgb, var(--warm) 7%, transparent); }
+.card[data-action="cooling"] .dwg .unitfill { fill: color-mix(in srgb, var(--cold) 8%, transparent); }
+.dwg .fanwrap { transform-box: view-box; transform-origin: 0 0; }
+.card[data-action="heating"] .dwg .fanwrap,
+.card[data-action="cooling"] .dwg .fanwrap { animation: spin 2.6s linear infinite; }
+.card[data-silent="true"] .dwg .fanwrap { animation-duration: 5.5s; }
+.dwg .rad-glow { fill: none; stroke-width: 6; stroke-linecap: round; opacity: .22; }
+.dwg .rad-tube { fill: none; stroke-width: 2.3; stroke-linecap: round; }
+.dwg .manifold { fill: none; stroke-width: 4.2; stroke-linecap: round; }
+.dwg .manifold.in { stroke: var(--inC); }
+.dwg .manifold.out { stroke: var(--outC); }
+.dwg .fin { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 16%, transparent); stroke-width: .7; }
+.dwg .dots.rise { stroke-width: 2.4; }
+.dwg .port { fill: var(--card-background-color); stroke-width: 1.6; }
+.dwg .port.in { stroke: var(--inC); }
+.dwg .port.out { stroke: var(--outC); }
+.dwg .g-disk { fill: color-mix(in srgb, var(--primary-text-color) 4%, transparent); }
+.dwg .g-ring { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 34%, transparent); stroke-width: 1; }
+.dwg .wall { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 28%, transparent); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+
+/* circuit — 19c open basin. Geometry lives in the SVG; no extra paint. */
+
+/* section — 17b cutaway */
+.section .dwg .soil { fill: color-mix(in srgb, var(--primary-text-color) 3.5%, transparent); }
+.section .dwg .grade { opacity: .7; }
+.dwg .nozzle { fill: var(--outC); opacity: .85; }
+.dwg .deck-slab { fill: color-mix(in srgb, var(--primary-text-color) 8%, transparent); }
+.dwg .foot { fill: none; stroke: color-mix(in srgb, var(--primary-text-color) 32%, transparent); stroke-width: 1.2; stroke-linecap: square; }
+
+/* motion */
+@keyframes dots { to { stroke-dashoffset: -36; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes plume { from { transform: scale(.85); } to { transform: scale(1.1); } }
+@keyframes surf { from { transform: translateX(-4px); } to { transform: translateX(4px); } }
+.card[data-flow="false"] .dwg .dots,
+.card[data-flow="false"] .dwg .fanwrap,
+.card[data-flow="false"] .dwg .plume,
+.card[data-flow="false"] .dwg .surface { animation: none; }
+.card[data-flow="false"] .dwg .dots { opacity: 0; }
+.card[data-flow="false"] .dwg .plume { opacity: 0; transform: none; }
+.card[data-flow="false"] .dwg .fanwrap { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .dwg .dots, .dwg .fanwrap, .dwg .plume, .dwg .surface { animation: none; }
+  .dwg .dots { opacity: 0; }
+  .dwg .plume { opacity: 0; transform: none; }
+}
+
+/* narrow — container query on the card; keep hero side-by-side */
+@container php (max-width: 379px) {
+  .w3 { padding: 18px 18px 16px; gap: 14px; }
+  .w3 .hero { gap: 8px; }
+  .w3 .big .num { font-size: 48px; }
+  .w3 .big .unit { font-size: 19px; top: 4px; }
+  .w3 .target .num { font-size: 24px; }
+  .w3 .target .unit { font-size: 13px; top: 2px; }
+  .w3 .target { column-gap: 6px; grid-template-columns: 28px auto 28px; }
+  .w3 .target .ib { width: 28px; height: 28px; }
+  .w3 .target .ib svg { width: 14px; height: 14px; }
+  .w3 .seg button { padding: 6px 11px; font-size: 12.5px; }
+  .w3 .modes { gap: 6px; }
+  .w3 .facts { grid-template-columns: repeat(2, 1fr); row-gap: 12px; }
+  .w3 .fact:nth-child(odd) { border-left: 0; padding-left: 0; }
+}

@@ -1,0 +1,187 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SPO Pool Heat Pump",
+        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full checklist: [/spo_pool_heat_pump/setup.html](/spo_pool_heat_pump/setup.html) (available after a restart; it links out to the wiring diagram).\n\n1. Parallel tap +, A, B, and G on the heat-pump bus (same four pins as the factory WiFi). If the DR164 has a separate DC− screw, join it to G. Swap A/B if CRC fails.\n2. Phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA Wi-Fi on the home LAN; reserve the DHCP lease.\n3. Socket A = TCP Server, transparent, port 8899. Serial 9600 8N1. UART idle 20 ms. Not Modbus gateway / MQTT / PUSR cloud.\n4. Enter that reserved IP below. One Home Assistant client only.\n\nSerial USB and Modbus-TCP gateways are not available in v1.",
+        "data": {
+          "host": "DR164 host (reserved LAN IP)",
+          "port": "Port (8899)"
+        },
+        "data_description": {
+          "host": "Reserved LAN IP of the USR-DR164. One Home Assistant TCP client only.",
+          "port": "Socket A port. Factory default is 8899."
+        }
+      },
+      "profile": {
+        "title": "Heat pump profile",
+        "description": "{detect_note}\n\nKeep that choice unless the name on the case is a different family. Compatible badges are listed on each option.",
+        "data": {
+          "profile": "Profile"
+        },
+        "data_description": {
+          "profile": "Pick by how the unit talks, not only the sticker. Oasis / Warmpool / ECPI / irriPool → Hayward. Azuro / Mountfield → MIDA Cosma. SuperMini / Thermotec → PHNIX Mini. Fairland/Norsup menu H37 slave 50 → CN13. IPS Pro / InverX / IPHCR → coil map. Not listed? Unknown heat pump — dump only. AquaTemp on the phone does not prove this wire map."
+        }
+      },
+      "options_setup": {
+        "title": "Options",
+        "description": "{bus_note} Write path: DTU slave 99 if the factory WiFi module is on the bus; slave 2 if it is not. Service settings (H/F/D special-menu parameters) can damage the unit. Leave them off unless you know the OEM values.",
+        "data": {
+          "name": "Name",
+          "write_path": "Write path",
+          "poll_interval": "Poll interval (seconds)",
+          "poll_slave": "Modbus slave (H37)",
+          "service_menu_writes": "⚠ Allow changing service settings"
+        },
+        "data_description": {
+          "name": "How this heat pump appears in Home Assistant.",
+          "write_path": "DTU slave 99 when the factory WiFi module is on the bus. Slave 2 if it is not. Do not unplug a live DTU while the path is still slave 99.",
+          "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
+          "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
+          "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure DR164",
+        "description": "Change the reserved LAN IP or port if the DR164 moved. Profile, write path, and H37 stay under Configure.",
+        "data": {
+          "host": "DR164 host (reserved LAN IP)",
+          "port": "Port (8899)"
+        },
+        "data_description": {
+          "host": "Reserved LAN IP of the USR-DR164. One Home Assistant TCP client only.",
+          "port": "Socket A port. Factory default is 8899."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the DR164. Confirm the reserved LAN IP, Socket A is TCP Server on port 8899, the pump is powered, and try swapping RS-485 A/B. See /spo_pool_heat_pump/setup.html."
+    },
+    "abort": {
+      "already_configured": "This heat pump is already configured.",
+      "reconfigure_successful": "Updated the DR164 host or port."
+    }
+  },
+  "exceptions": {
+    "no_entry": { "message": "No pool heat pump entry" },
+    "multiple_entries": { "message": "Select which heat pump (entry_id or device_id)" },
+    "service_menu_timeout": { "message": "Service settings page read timed out" },
+    "service_menu_writes_disabled": { "message": "Enable changing service settings in the integration options first" },
+    "service_menu_not_writable": { "message": "{key} is not a writable service setting" },
+    "service_menu_read_only": { "message": "This service setting is read-only" },
+    "dump_already_running": { "message": "A bus dump is already running" },
+    "dump_not_running": { "message": "No bus dump is running" },
+    "dump_dir_full": { "message": "The dumps folder is over 200 MB. Delete old captures first." },
+    "dump_invalid_duration": { "message": "Duration must be 0–7200 seconds" },
+    "dump_invalid_name": { "message": "Invalid dump file name" },
+    "dump_failed": { "message": "Bus dump failed" },
+    "dump_only_no_writes": { "message": "Dump-only profile does not write. Capture a bus dump, then switch to a real profile." }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SPO Pool Heat Pump options",
+        "description": "Write path: DTU slave 99 when the factory WiFi module is present, slave 2 when it is not. Do not unplug a live DTU while the path is still slave 99. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: /spo_pool_heat_pump/setup.html",
+        "data": {
+          "profile": "Profile",
+          "write_path": "Write path",
+          "poll_interval": "Poll interval (seconds)",
+          "poll_slave": "Modbus slave (H37)",
+          "service_menu_writes": "⚠ Allow changing service settings",
+          "manual_cop_flow": "Use manual flow for COP",
+          "water_flow_m3h": "Water flow (m³/h)"
+        },
+        "data_description": {
+          "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
+          "profile": "Same-board badges are listed on each option. Oasis / Warmpool → Hayward. Azuro / Mountfield → MIDA Cosma. SuperMini → PHNIX Mini. Slave 50 → CN13. IPS Pro / InverX → coil map. Not listed? Dump only.",
+          "write_path": "DTU slave 99 when the factory WiFi module is on the bus. Slave 2 if it is not. Do not unplug a live DTU while the path is still slave 99.",
+          "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
+          "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1.",
+          "manual_cop_flow": "When on, COP is calculated from this flow, inlet/outlet ΔT, and electrical power. The controller COP register is ignored.",
+          "water_flow_m3h": "Circulation through the heat exchanger. Type-plate range is typically a few m³/h. 0 means unused."
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "state": {
+          "off": "Off",
+          "heat": "Heat",
+          "cool": "Cool",
+          "heat_cool": "Auto"
+        },
+        "state_attributes": {
+          "preset_mode": {
+            "name": "Quiet mode",
+            "state": {
+              "silent": "On",
+              "none": "Off"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "inlet": { "name": "Inlet" },
+      "outlet": { "name": "Outlet" },
+      "ambient": { "name": "Ambient" },
+      "power": { "name": "Power" },
+      "energy_24h": { "name": "Energy 24h" },
+      "energy_total": { "name": "Energy total" },
+      "compressor": { "name": "Compressor" },
+      "compressor_hz": { "name": "Compressor frequency" },
+      "fan": { "name": "Fan" },
+      "coil": { "name": "Coil" },
+      "exhaust": { "name": "Exhaust" },
+      "fw_display": { "name": "Display firmware" },
+      "fw_main": { "name": "Main firmware" },
+      "fw_mini": { "name": "Mini firmware" },
+      "panel_clock": { "name": "Panel clock" },
+      "t_suction": { "name": "Suction" },
+      "low_pressure": { "name": "Low pressure" },
+      "superheat": { "name": "Superheat" },
+      "ac_voltage": { "name": "AC voltage" },
+      "dc_bus": { "name": "DC bus" },
+      "phase_current": { "name": "Phase current" },
+      "ipm_temp": { "name": "IPM temperature" },
+      "eev_steps": { "name": "EEV steps" },
+      "antifreeze": { "name": "Antifreeze" },
+      "t_coil_2": { "name": "Coil 2" },
+      "comp_hz_target": { "name": "Target frequency" },
+      "cop": { "name": "COP" },
+      "cop_display": { "name": "COP" },
+      "capacity": { "name": "Capacity" }
+    },
+    "switch": {
+      "silent": { "name": "Quiet" },
+      "silent_timer": { "name": "Quiet timer" },
+      "timer1_on": { "name": "Timer 1 on" },
+      "timer1_off": { "name": "Timer 1 off" },
+      "timer2_on": { "name": "Timer 2 on" },
+      "timer2_off": { "name": "Timer 2 off" }
+    },
+    "number": {
+      "silent_timer_start_h": { "name": "Quiet timer start hour" },
+      "silent_timer_stop_h": { "name": "Quiet timer stop hour" },
+      "timer1_on_h": { "name": "Timer 1 on hour" },
+      "timer1_on_min": { "name": "Timer 1 on minute" },
+      "timer1_off_h": { "name": "Timer 1 off hour" },
+      "timer1_off_min": { "name": "Timer 1 off minute" },
+      "timer2_on_h": { "name": "Timer 2 on hour" },
+      "timer2_on_min": { "name": "Timer 2 on minute" },
+      "timer2_off_h": { "name": "Timer 2 off hour" },
+      "timer2_off_min": { "name": "Timer 2 off minute" }
+    },
+    "binary_sensor": {
+      "compressor_running": { "name": "Compressor running" },
+      "pump_running": { "name": "Pump running" },
+      "fault": { "name": "Fault" },
+      "high_pressure": { "name": "High-pressure switch" },
+      "low_pressure": { "name": "Low-pressure switch" },
+      "flow_switch": { "name": "Flow switch" },
+      "remote": { "name": "Remote" }
+    }
+  }
+}

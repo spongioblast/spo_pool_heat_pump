@@ -1,0 +1,129 @@
+{
+  "identity": {
+    "id": "fairland_ips_pro_coils",
+    "brand": "Fairland",
+    "model": "IPS Pro",
+    "family": "fairland_coils",
+    "also_sold_as": [
+      "InverX",
+      "IPHCR"
+    ],
+    "verification": "community",
+    "source": "reference/REVIEW.md — rstcologne / spdr870 / enboer (untested)",
+    "connector": "RS-485 slave 1"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {
+      "1": "heat pump"
+    }
+  },
+  "driver": {
+    "type": "poll_master",
+    "poll_slave": 1,
+    "poll_interval": 10,
+    "write_fc": 6,
+    "reads": [
+      {
+        "fc": 1,
+        "slave": 1,
+        "start": 0,
+        "qty": 8,
+        "name": "coils"
+      },
+      {
+        "fc": 3,
+        "slave": 1,
+        "start": 0,
+        "qty": 32,
+        "name": "holding"
+      },
+      {
+        "fc": 4,
+        "slave": 1,
+        "start": 0,
+        "qty": 32,
+        "name": "input"
+      }
+    ]
+  },
+  "modes": [
+    "heat",
+    "cool",
+    "auto"
+  ],
+  "enums": {
+    "mode": {
+      "0": "auto",
+      "1": "heat",
+      "2": "cool"
+    }
+  },
+  "registers": {
+    "power": {
+      "block": "coils",
+      "offset": 0,
+      "write": 0,
+      "write_fc": 5,
+      "type": "bool"
+    },
+    "mode": {
+      "block": "holding",
+      "offset": 0,
+      "write": 0,
+      "enum": "mode",
+      "type": "enum"
+    },
+    "silent": {
+      "block": "holding",
+      "offset": 1,
+      "write": 1,
+      "type": "bool"
+    },
+    "setpoint": {
+      "block": "holding",
+      "offset": 3,
+      "write": 3,
+      "transform": "fairland_temp",
+      "type": "u16"
+    },
+    "t_inlet": {
+      "block": "input",
+      "offset": 0,
+      "transform": "fairland_temp",
+      "type": "u16"
+    },
+    "t_outlet": {
+      "block": "input",
+      "offset": 3,
+      "transform": "fairland_temp",
+      "type": "u16"
+    },
+    "t_ambient": {
+      "block": "input",
+      "offset": 4,
+      "transform": "fairland_temp",
+      "type": "u16"
+    },
+    "outputs": {
+      "block": "coils",
+      "offset": 0,
+      "bits": {
+        "compressor": 0
+      },
+      "type": "bits"
+    },
+    "faults": {
+      "regs": [],
+      "codes": {},
+      "type": "faults"
+    }
+  },
+  "fixtures": {
+    "frames": {
+      "probe_coil0": "01 01 00 00 00 01 FD CA"
+    }
+  }
+}

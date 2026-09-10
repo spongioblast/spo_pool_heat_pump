@@ -1,0 +1,134 @@
+{
+  "identity": {
+    "id": "phnix_mini_pc1002",
+    "brand": "PHNIX",
+    "model": "Mini",
+    "family": "pc1002",
+    "oem": "PHNIX",
+    "app": "AquaTemp",
+    "also_sold_as": [
+      "SuperMini",
+      "SpecialLine",
+      "Thermotec"
+    ],
+    "verification": "community",
+    "source": "reference/REVIEW.md — Thermotec Protocol.md / ESPHome BLE wrap (untested)",
+    "connector": "RS-485 or BLE wrap of the same registers"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {
+      "0": "broadcast",
+      "2": "second UI",
+      "99": "DTU"
+    }
+  },
+  "driver": {
+    "type": "pc1002_bus",
+    "write_targets": [
+      "dtu_99",
+      "slave2"
+    ],
+    "default_write": "dtu_99",
+    "detect": {
+      "firmware_regs": [
+        2017,
+        2018
+      ]
+    },
+    "broadcast": {
+      "start": 2001,
+      "qty": 90
+    }
+  },
+  "modes": [
+    "heat",
+    "cool",
+    "auto"
+  ],
+  "enums": {
+    "mode": {
+      "0": "cool",
+      "1": "heat",
+      "2": "auto"
+    }
+  },
+  "registers": {
+    "power": {
+      "reg": 2011,
+      "write": 1011,
+      "type": "bool"
+    },
+    "mode": {
+      "reg": 2012,
+      "write": 1012,
+      "enum": "mode",
+      "type": "enum"
+    },
+    "setpoint": {
+      "reg": 2013,
+      "write": 1013,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "silent": {
+      "reg": 2064,
+      "write": 1076,
+      "type": "bool",
+      "nonzero": true
+    },
+    "t_inlet": {
+      "reg": 2046,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_outlet": {
+      "reg": 2047,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_ambient": {
+      "reg": 2049,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "comp_hz": {
+      "reg": 2021,
+      "type": "u16"
+    },
+    "fw_mini": {
+      "reg": 2017,
+      "type": "u16"
+    },
+    "outputs": {
+      "reg": 2019,
+      "bits": {
+        "compressor": 0,
+        "water_pump": 1,
+        "high_fan": 2,
+        "four_way_valve": 3
+      },
+      "type": "bits"
+    },
+    "faults": {
+      "regs": [
+        2074,
+        2075,
+        2076,
+        2077
+      ],
+      "type": "faults",
+      "file": "_faults_pc1002.json"
+    }
+  },
+  "hz_max": { "default": { "heat": 90, "cool": 55, "auto": 90 } },
+  "fixtures": {
+    "frames": {
+      "power_on": "63 10 03 F3 00 01 02 00 01 F1 31",
+      "mode_cool": "63 10 03 F4 00 01 02 00 00 31 46"
+    }
+  },
+  "notes": "Command 1011/1012 match the MIDA Cosma map. 2019 bit order and setpoints differ — community. Write path is DTU 99 when the WiFi module is present, slave 2 when it is not."
+}

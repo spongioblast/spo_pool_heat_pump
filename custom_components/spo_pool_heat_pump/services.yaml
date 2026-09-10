@@ -1,0 +1,192 @@
+refresh_service_menu:
+  name: Refresh service menu
+  description: One-shot read of the service-menu settings pages (1001 / 1091 / 1181).
+  fields:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: spo_pool_heat_pump
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: spo_pool_heat_pump
+
+set_service_menu:
+  name: Set service setting
+  description: Write one service-menu parameter. Requires the service-menu writes option.
+  fields:
+    key:
+      required: true
+      example: h06_min_freq_heat
+      selector:
+        select:
+          options:
+            - d01_bar_defrost_start_pressure
+            - d01_defrost_start_ct
+            - d02_defrost_stop_ct
+            - d03_defrost_cycle_min
+            - d04_defrost_max_min
+            - d06_defrost_type
+            - d07_slip_defrost_start_at
+            - d08_bar_slip_defrost_pressure_dev
+            - d08_slip_defrost_ct_dev
+            - d09_slip_defrost_at_dev
+            - d10_bar_slip_defrost_min_pressure
+            - d10_slip_defrost_min_coil
+            - data_refresh_time
+            - e01_eev_mode
+            - e02_eev_overheat_set
+            - e03_eev_init_steps
+            - e04_eev_min_steps
+            - e05_eev_defrost_steps
+            - e06_eev_cool_steps
+            - e07_eev_exhaust_set
+            - e09_eev_p
+            - e10_eev_i
+            - e11_eev_d
+            - e12_eev_max_overheat_compen
+            - f01_fan_mode
+            - f02_bar_cool_max_fan_pressure
+            - f02_cool_max_fan_temp
+            - f03_bar_cool_min_fan_pressure
+            - f03_cool_min_fan_temp
+            - f04_bar_cool_fan_stop_pressure
+            - f04_cool_fan_stop_temp
+            - f05_bar_heat_max_fan_pressure
+            - f05_heat_max_fan_temp
+            - f06_bar_heat_min_fan_pressure
+            - f06_heat_min_fan_temp
+            - f07_bar_heat_fan_stop_pressure
+            - f07_heat_fan_stop_temp
+            - f10_fan_control_mode
+            - f11_heat_max_duty
+            - f11_r_heat_max_fan_rpm
+            - f12_cool_max_duty
+            - f12_r_cool_max_fan_rpm
+            - f13_heat_min_duty
+            - f13_r_heat_min_fan_rpm
+            - f16_r_silent_fan_rpm
+            - f16_silent_duty
+            - f18_manual_fan_speed_enable
+            - f19_ac_fan_rated_duty
+            - f19_r_dc_fan_rated_rpm
+            - f20_pwm_or_antifreeze_temp
+            - h06_min_freq_heat
+            - h07_min_freq_cool
+            - h08_max_freq_heat
+            - h09_max_freq_cool
+            - h10_delay_off_min
+            - h11_auto_restart_min
+            - h12_compressor_type
+            - h13_defrost_freq
+            - h14_freq_adjust_cycle
+            - h15_comp_overcurrent
+            - h16_refrigerant_type
+            - h17_cool_start_compen_low_at
+            - h18_cool_stop_compen_low_at
+            - h19_cool_max_freq_low_at
+            - h20_cool_start_compen_high_at
+            - h21_cool_stop_compen_high_at
+            - h22_cool_stop_freq_high_at
+            - h23_heat_start_compen_low_at
+            - h24_heat_stop_compen_low_at
+            - h25_heat_max_freq_low_at
+            - h26_heat_start_compen_high_at
+            - h27_heat_stop_compen_high_at
+            - h28_heat_max_freq_high_at
+            - h29_max_pressure_sensor
+            - h30_min_pressure_sensor
+            - h31_overheat_compen_start_at
+            - h32_overheat_compen_stop_at
+            - h33_max_freq_silent
+            - h34_comp_stop_lowest_at
+            - h35_start_freq_temp_diff
+            - h36_comp_restart_freq
+            - h37_unit_address
+            - h44_heat_smart_freq
+            - h45_heat_eco_freq
+            - h46_cool_smart_freq
+            - h47_cool_eco_freq
+            - h50_comp_stop_highest_at
+            - p01_water_pump_mode
+            - p02_water_pump_interval_min
+            - p03_water_pump_duration_min
+            - p04_water_pump_advance
+            - p05_water_pump_filtration_enable
+            - p06_filtration_start_1_h
+            - p07_filtration_stop_1_h
+            - p08_filtration_start_2_h
+            - p09_filtration_stop_2_h
+            - r04_restart_temp_diff
+            - r05_shutdown_temp_diff
+            - r08_min_cool_setpoint
+            - r09_max_cool_setpoint
+            - r10_min_heat_setpoint
+            - r11_max_heat_setpoint
+            - r12_inverter_restart_temp_diff
+            - temperature_unit
+            - u02_litre_pulse
+    value:
+      required: true
+      selector:
+        text:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: spo_pool_heat_pump
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: spo_pool_heat_pump
+
+start_dump:
+  name: Start bus dump
+  description: Capture raw RS-485 bytes from the DR164 in the rs485_dump format. Duration is seconds; 0 runs until the 40 MB session cap or Stop.
+  fields:
+    duration:
+      required: false
+      example: 900
+      selector:
+        number:
+          min: 0
+          max: 7200
+          unit_of_measurement: s
+    note:
+      required: false
+      example: pressed Cool
+      selector:
+        text:
+    include_writes:
+      required: false
+      example: true
+      selector:
+        boolean:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: spo_pool_heat_pump
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: spo_pool_heat_pump
+
+stop_dump:
+  name: Stop bus dump
+  description: Stop the running RS-485 capture and close the files.
+  fields:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: spo_pool_heat_pump
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: spo_pool_heat_pump

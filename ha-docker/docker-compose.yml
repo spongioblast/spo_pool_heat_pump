@@ -1,0 +1,45 @@
+name: spo-pool-heat-pump-ha-test
+
+# Isolated Home Assistant + state-model simulator. Do not point this at a live
+# DR164 while another HA is already on that socket (one client only).
+# Dump replay remains the wire-fidelity alternative:
+#   python ../protocol-analysis/dump_replay_server.py --dump ../protocol-analysis/dumps/20260906_104432.log
+
+services:
+  replay:
+    image: python:3.12-slim
+    restart: unless-stopped
+    working_dir: /repo
+    environment:
+      PYTHONPATH: /repo:/repo/custom_components
+    volumes:
+      - ..:/repo:ro
+    command:
+      - python
+      - -m
+      - tools.simulator
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8899"
+      - --profile
+      - mida_cosma_pc1002
+      - --scenario
+      - heating_to_setpoint
+      - --tick
+      - "1.0"
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    depends_on:
+      - replay
+    # Bind on WSL loopback only. Windows cannot use docker-proxy ports here;
+    # ha-docker/win_proxy.py listens on 8124 and forwards to this.
+    ports:
+      - "127.0.0.1:18123:8123"
+    environment:
+      TZ: Europe/Berlin
+    volumes:
+      - ./config:/config
+      - ../custom_components/spo_pool_heat_pump:/config/custom_components/spo_pool_heat_pump:ro

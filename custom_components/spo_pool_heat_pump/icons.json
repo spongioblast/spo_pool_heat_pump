@@ -1,0 +1,173 @@
+{
+  "entity": {
+    "climate": {
+      "climate": {
+        "default": "mdi:heat-pump"
+      }
+    },
+    "switch": {
+      "silent": {
+        "default": "mdi:fan-minus"
+      },
+      "silent_timer": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_on": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_off": {
+        "default": "mdi:timer-off-outline"
+      },
+      "timer2_on": {
+        "default": "mdi:timer-outline"
+      },
+      "timer2_off": {
+        "default": "mdi:timer-off-outline"
+      }
+    },
+    "number": {
+      "silent_timer_start_h": {
+        "default": "mdi:timer-outline"
+      },
+      "silent_timer_stop_h": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_on_h": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_on_min": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_off_h": {
+        "default": "mdi:timer-outline"
+      },
+      "timer1_off_min": {
+        "default": "mdi:timer-outline"
+      },
+      "timer2_on_h": {
+        "default": "mdi:timer-outline"
+      },
+      "timer2_on_min": {
+        "default": "mdi:timer-outline"
+      },
+      "timer2_off_h": {
+        "default": "mdi:timer-outline"
+      },
+      "timer2_off_min": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "binary_sensor": {
+      "fault": {
+        "default": "mdi:alert-circle"
+      },
+      "compressor_running": {
+        "default": "mdi:engine"
+      },
+      "pump_running": {
+        "default": "mdi:pump"
+      },
+      "high_pressure": {
+        "default": "mdi:gauge-full"
+      },
+      "low_pressure": {
+        "default": "mdi:gauge-low"
+      },
+      "flow_switch": {
+        "default": "mdi:water-pump"
+      },
+      "remote": {
+        "default": "mdi:remote"
+      }
+    },
+    "sensor": {
+      "inlet": {
+        "default": "mdi:thermometer-water"
+      },
+      "outlet": {
+        "default": "mdi:thermometer-water"
+      },
+      "ambient": {
+        "default": "mdi:thermometer"
+      },
+      "power": {
+        "default": "mdi:flash"
+      },
+      "energy_24h": {
+        "default": "mdi:lightning-bolt"
+      },
+      "energy_total": {
+        "default": "mdi:lightning-bolt"
+      },
+      "compressor": {
+        "default": "mdi:engine"
+      },
+      "compressor_hz": {
+        "default": "mdi:sine-wave"
+      },
+      "fan": {
+        "default": "mdi:fan"
+      },
+      "coil": {
+        "default": "mdi:thermometer"
+      },
+      "exhaust": {
+        "default": "mdi:thermometer"
+      },
+      "fw_display": {
+        "default": "mdi:chip"
+      },
+      "fw_main": {
+        "default": "mdi:chip"
+      },
+      "fw_mini": {
+        "default": "mdi:chip"
+      },
+      "panel_clock": {
+        "default": "mdi:clock-outline"
+      },
+      "t_suction": {
+        "default": "mdi:thermometer"
+      },
+      "low_pressure": {
+        "default": "mdi:gauge-low"
+      },
+      "superheat": {
+        "default": "mdi:thermometer"
+      },
+      "ac_voltage": {
+        "default": "mdi:sine-wave"
+      },
+      "dc_bus": {
+        "default": "mdi:sine-wave"
+      },
+      "phase_current": {
+        "default": "mdi:current-ac"
+      },
+      "ipm_temp": {
+        "default": "mdi:thermometer"
+      },
+      "eev_steps": {
+        "default": "mdi:valve"
+      },
+      "antifreeze": {
+        "default": "mdi:snowflake-thermometer"
+      },
+      "t_coil_2": {
+        "default": "mdi:thermometer"
+      },
+      "comp_hz_target": {
+        "default": "mdi:sine-wave"
+      },
+      "cop": {
+        "default": "mdi:chart-line"
+      },
+      "cop_display": {
+        "default": "mdi:chart-line"
+      },
+      "capacity": {
+        "default": "mdi:heat-pump"
+      }
+    }
+  }
+}

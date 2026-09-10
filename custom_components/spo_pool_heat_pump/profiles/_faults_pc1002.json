@@ -1,0 +1,330 @@
+{
+  "_comment": "PC1002 family fault catalog (PHNIX OEM controller). Verified unit is MIDA Cosma (Midas). Hayward / Welldana are other badges. bits = register map. booklet = OEM display+inverter tables. AquaTemp is the app, not a brand.",
+  "bits": {
+    "2074.0": {
+      "code": "P01",
+      "text": "Inlet temperature sensor",
+      "source": "community"
+    },
+    "2074.1": {
+      "code": "P02",
+      "text": "Outlet temperature sensor",
+      "source": "community"
+    },
+    "2074.2": {
+      "code": "P04",
+      "text": "Ambient temperature sensor",
+      "source": "community"
+    },
+    "2074.3": {
+      "code": "P05",
+      "text": "Coil 1 temperature sensor",
+      "source": "community"
+    },
+    "2074.4": {
+      "code": "P07",
+      "text": "Suction temperature sensor",
+      "source": "community"
+    },
+    "2074.5": {
+      "code": "P081",
+      "text": "Discharge temperature sensor",
+      "source": "community"
+    },
+    "2074.6": {
+      "code": "E051",
+      "text": "Compressor overcurrent",
+      "source": "community"
+    },
+    "2074.7": {
+      "code": "E01",
+      "text": "High pressure protection",
+      "source": "community"
+    },
+    "2074.8": {
+      "code": "E02",
+      "text": "Low pressure protection",
+      "source": "community"
+    },
+    "2074.9": {
+      "code": "E03",
+      "text": "Flow switch — no water",
+      "source": "verified",
+      "observed": "20260905_122158: 2074 0→512 (bit 9) with 2034 S03; recovered to 0 with the flow bit"
+    },
+    "2074.10": {
+      "code": "E19",
+      "text": "Primary winter anti-freeze",
+      "source": "community"
+    },
+    "2074.11": {
+      "code": "E29",
+      "text": "Secondary winter anti-freeze",
+      "source": "community"
+    },
+    "2074.12": {
+      "code": "E07",
+      "text": "Anti-freeze protection",
+      "source": "community"
+    },
+    "2074.13": {
+      "code": "R2074B13",
+      "text": "High discharge temperature",
+      "source": "community"
+    },
+    "2074.14": {
+      "code": "E06",
+      "text": "Inlet/outlet temperature difference too large",
+      "source": "community"
+    },
+    "2075.0": {
+      "code": "R2075B0",
+      "text": "Compressor overload more than 3 times",
+      "source": "community"
+    },
+    "2075.1": {
+      "code": "R2075B1",
+      "text": "High pressure more than 3 times",
+      "source": "community"
+    },
+    "2075.2": {
+      "code": "R2075B2",
+      "text": "Low pressure more than 3 times",
+      "source": "community"
+    },
+    "2075.3": {
+      "code": "R2075B3",
+      "text": "Water flow protection more than 3 times",
+      "source": "community"
+    },
+    "2075.4": {
+      "code": "R2075B4",
+      "text": "Anti-freeze more than 3 times",
+      "source": "community"
+    },
+    "2075.5": {
+      "code": "R2075B5",
+      "text": "High discharge temperature more than 3 times",
+      "source": "community"
+    },
+    "2075.6": {
+      "code": "F01",
+      "text": "MOP drive warning",
+      "source": "community"
+    },
+    "2075.7": {
+      "code": "F02",
+      "text": "Converter board offline",
+      "source": "community"
+    },
+    "2075.8": {
+      "code": "F03",
+      "text": "IPM protection",
+      "source": "community"
+    },
+    "2075.9": {
+      "code": "F04",
+      "text": "Compressor start-up failure",
+      "source": "community"
+    },
+    "2075.10": {
+      "code": "F17",
+      "text": "Converter input phase loss",
+      "source": "community"
+    },
+    "2075.11": {
+      "code": "F18",
+      "text": "IPM current sampling failure",
+      "source": "community"
+    },
+    "2075.12": {
+      "code": "F20",
+      "text": "Converter overheat protection",
+      "source": "community"
+    },
+    "2075.13": {
+      "code": "F07",
+      "text": "Converter DC over-voltage",
+      "source": "community"
+    },
+    "2075.14": {
+      "code": "F08",
+      "text": "Converter DC under-voltage",
+      "source": "community"
+    },
+    "2075.15": {
+      "code": "R2075B15",
+      "text": "Input under-voltage",
+      "source": "community"
+    },
+    "2076.0": {
+      "code": "R2076B0",
+      "text": "Input over-voltage",
+      "source": "community"
+    },
+    "2076.1": {
+      "code": "R2076B1",
+      "text": "Sampling voltage failure",
+      "source": "community"
+    },
+    "2076.2": {
+      "code": "F12",
+      "text": "DSP and PFC connection failure",
+      "source": "community"
+    },
+    "2076.3": {
+      "code": "F19",
+      "text": "Inverter temperature probe",
+      "note": "Booklet F19. Older maps called this radiator temperature sensor.",
+      "source": "community"
+    },
+    "2076.4": {
+      "code": "F28",
+      "text": "V15V over/under voltage",
+      "source": "community"
+    },
+    "2076.5": {
+      "code": "F27",
+      "text": "PFC failure",
+      "source": "community"
+    },
+    "2076.6": {
+      "code": "F15",
+      "text": "IPM overheat protection",
+      "source": "community"
+    },
+    "2076.7": {
+      "code": "F16",
+      "text": "Weak magnetic protection",
+      "source": "community"
+    },
+    "2076.8": {
+      "code": "F24",
+      "text": "Input overcurrent warning",
+      "source": "community"
+    },
+    "2076.9": {
+      "code": "F22",
+      "text": "Converter overheat warning",
+      "source": "community"
+    },
+    "2076.10": {
+      "code": "R2076B10",
+      "text": "Input overcurrent protection",
+      "source": "community"
+    },
+    "2076.11": {
+      "code": "F25",
+      "text": "EEPROM error",
+      "source": "community"
+    },
+    "2076.12": {
+      "code": "R2076B12",
+      "text": "IPM protection (second latch)",
+      "source": "community"
+    },
+    "2076.13": {
+      "code": "R2076B13",
+      "text": "DC fan driver-board protection",
+      "source": "community"
+    },
+    "2076.14": {
+      "code": "PP",
+      "text": "Pressure sensor",
+      "source": "community"
+    },
+    "2076.15": {
+      "code": "F26",
+      "text": "Input overcurrent",
+      "source": "community"
+    },
+    "2077.0": {
+      "code": "R2077B0",
+      "text": "Anti-freeze protection",
+      "source": "community"
+    },
+    "2077.1": {
+      "code": "R2077B1",
+      "text": "Anti-freeze protection in heating",
+      "source": "community"
+    },
+    "2077.2": {
+      "code": "F051",
+      "text": "EC fan feedback fault",
+      "source": "community"
+    },
+    "2077.3": {
+      "code": "F031",
+      "text": "Fan motor 1 fault",
+      "source": "community"
+    },
+    "2077.4": {
+      "code": "F032",
+      "text": "Fan motor 2 fault",
+      "source": "community"
+    },
+    "2077.5": {
+      "code": "R2077B5",
+      "text": "DC fan communication fault",
+      "source": "community"
+    }
+  },
+  "aliases": {
+    "P81": "P081",
+    "P82": "P082",
+    "E51": "E051",
+    "F51": "F051"
+  },
+  "booklet": {
+    "P01": { "text": "Inlet temperature sensor", "table": "display", "bit": "2074.0" },
+    "P02": { "text": "Outlet temperature sensor", "table": "display", "bit": "2074.1" },
+    "P04": { "text": "Ambient temperature sensor", "table": "display", "bit": "2074.2" },
+    "P05": { "text": "Coil 1 temperature sensor", "table": "display", "bit": "2074.3" },
+    "P15": { "text": "Coil 2 temperature sensor", "table": "display", "bit": null },
+    "P07": { "text": "Suction temperature sensor", "table": "display", "bit": "2074.4" },
+    "P081": { "text": "Discharge temperature sensor", "table": "display", "bit": "2074.5" },
+    "P082": { "text": "Exhaust over-temperature", "table": "display", "bit": null, "note": "Hayward 2074.13 is similar (high discharge) but not assigned" },
+    "P09": { "text": "Anti-freeze temperature sensor", "table": "display", "bit": null },
+    "PP": { "text": "Pressure sensor", "table": "display", "bit": "2076.14" },
+    "E01": { "text": "High pressure protection", "table": "display", "bit": "2074.7" },
+    "E02": { "text": "Low pressure protection", "table": "display", "bit": "2074.8" },
+    "E03": { "text": "Flow switch — no water", "table": "display", "bit": "2074.9" },
+    "E05": { "text": "Waterway anti-freeze", "table": "display", "bit": null, "note": "Hayward 2077.0/2077.1 are generic anti-freeze, not assigned" },
+    "E06": { "text": "Inlet/outlet temperature difference too large", "table": "display", "bit": "2074.14" },
+    "E07": { "text": "Anti-freeze protection", "table": "display", "bit": "2074.12" },
+    "E19": { "text": "Primary winter anti-freeze", "table": "display", "bit": "2074.10" },
+    "E29": { "text": "Secondary winter anti-freeze", "table": "display", "bit": "2074.11" },
+    "E051": { "text": "Compressor overcurrent", "table": "display", "bit": "2074.6" },
+    "E08": { "text": "Display communication fault", "table": "display", "bit": null },
+    "E081": { "text": "Inverter communication fault", "table": "display", "bit": null },
+    "TP": { "text": "Ambient temperature too low", "table": "display", "bit": null },
+    "F051": { "text": "EC fan feedback fault", "table": "display", "bit": "2077.2" },
+    "F031": { "text": "Fan motor 1 fault", "table": "display", "bit": "2077.3" },
+    "F032": { "text": "Fan motor 2 fault", "table": "display", "bit": "2077.4" },
+    "F01": { "text": "MOP drive warning", "table": "inverter", "bit": "2075.6" },
+    "F02": { "text": "Converter board offline", "table": "inverter", "bit": "2075.7" },
+    "F03": { "text": "IPM protection", "table": "inverter", "bit": "2075.8" },
+    "F04": { "text": "Compressor start-up failure", "table": "inverter", "bit": "2075.9" },
+    "F05": { "text": "DC fan current feedback open/short", "table": "inverter", "bit": null },
+    "F06": { "text": "IPM overcurrent", "table": "inverter", "bit": null },
+    "F07": { "text": "Converter DC over-voltage", "table": "inverter", "bit": "2075.13" },
+    "F08": { "text": "Converter DC under-voltage", "table": "inverter", "bit": "2075.14" },
+    "F09": { "text": "Inverter input under-voltage", "table": "inverter", "bit": null, "note": "Hayward 2075.15 same idea, not assigned" },
+    "F10": { "text": "Inverter input over-voltage", "table": "inverter", "bit": null, "note": "Hayward 2076.0 same idea, not assigned" },
+    "F11": { "text": "Inverter sampling voltage failure", "table": "inverter", "bit": null, "note": "Hayward 2076.1 same idea, not assigned" },
+    "F12": { "text": "DSP and PFC connection failure", "table": "inverter", "bit": "2076.2" },
+    "F15": { "text": "IPM overheat protection", "table": "inverter", "bit": "2076.6" },
+    "F16": { "text": "Weak magnetic protection", "table": "inverter", "bit": "2076.7" },
+    "F17": { "text": "Converter input phase loss", "table": "inverter", "bit": "2075.10" },
+    "F18": { "text": "IPM current sampling failure", "table": "inverter", "bit": "2075.11" },
+    "F19": { "text": "Inverter temperature probe", "table": "inverter", "bit": "2076.3" },
+    "F20": { "text": "Converter overheat protection", "table": "inverter", "bit": "2075.12" },
+    "F22": { "text": "Converter overheat warning", "table": "inverter", "bit": "2076.9" },
+    "F23": { "text": "Compressor overcurrent warning", "table": "inverter", "bit": null },
+    "F24": { "text": "Input overcurrent warning", "table": "inverter", "bit": "2076.8" },
+    "F25": { "text": "EEPROM error", "table": "inverter", "bit": "2076.11" },
+    "F26": { "text": "Input overcurrent", "table": "inverter", "bit": "2076.15" },
+    "F27": { "text": "PFC failure", "table": "inverter", "bit": "2076.5" },
+    "F28": { "text": "V15V over/under voltage", "table": "inverter", "bit": "2076.4" }
+  }
+}

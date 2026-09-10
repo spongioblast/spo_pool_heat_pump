@@ -1,0 +1,122 @@
+{
+  "identity": {
+    "id": "fairland_pc1004_cn13",
+    "brand": "Fairland",
+    "model": "PC1004 CN13",
+    "family": "pc1004",
+    "also_sold_as": [
+      "Norsup"
+    ],
+    "verification": "community",
+    "source": "reference/REVIEW.md — fleuke VBIV-Fairland-Norsup-ha (untested)",
+    "connector": "Modbus TCP gateway (EW11) or RS-485, slave 50"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {
+      "50": "heat pump (menu H37)"
+    }
+  },
+  "driver": {
+    "type": "poll_master",
+    "poll_slave": 50,
+    "poll_interval": 10,
+    "write_fc": 6,
+    "reads": [
+      {
+        "fc": 3,
+        "slave": 50,
+        "start": 1011,
+        "qty": 3
+      },
+      {
+        "fc": 3,
+        "slave": 50,
+        "start": 2011,
+        "qty": 70
+      }
+    ]
+  },
+  "modes": [
+    "heat",
+    "cool",
+    "auto"
+  ],
+  "enums": {
+    "mode": {
+      "0": "cool",
+      "1": "heat",
+      "2": "auto"
+    }
+  },
+  "registers": {
+    "power": {
+      "reg": 2011,
+      "write": 1011,
+      "type": "bool"
+    },
+    "mode": {
+      "reg": 2012,
+      "write": 1012,
+      "enum": "mode",
+      "type": "enum"
+    },
+    "setpoint": {
+      "reg": 2013,
+      "write": 1013,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "silent": {
+      "reg": 2064,
+      "write": 1076,
+      "type": "bool"
+    },
+    "t_inlet": {
+      "reg": 2046,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_outlet": {
+      "reg": 2047,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_ambient": {
+      "reg": 2049,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "comp_hz": {
+      "reg": 2021,
+      "type": "u16"
+    },
+    "outputs": {
+      "reg": 2019,
+      "bits": {
+        "compressor": 0,
+        "high_fan": 1,
+        "water_pump": 3,
+        "four_way_valve": 4
+      },
+      "type": "bits"
+    },
+    "faults": {
+      "regs": [
+        2074,
+        2075,
+        2076,
+        2077
+      ],
+      "type": "faults"
+    }
+  },
+  "fixtures": {
+    "frames": {
+      "probe_slave50": "32 03 03 F3 00 03 F0 7F"
+    }
+  },
+  "notes": "Community poll map. Faults 2074–2077 stay raw reg.bit until a dump maps them — do not use the Cosma booklet. Slave address is menu H37 (default 50)."
+}

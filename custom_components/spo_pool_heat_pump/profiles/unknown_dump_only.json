@@ -1,0 +1,26 @@
+{
+  "identity": {
+    "id": "unknown_dump_only",
+    "brand": "Unknown",
+    "model": "Dump only",
+    "family": "listen",
+    "verification": "experimental",
+    "source": "Listen-only capture. No register map — dump the bus, then add a real profile.",
+    "connector": "RS-485 transparent TCP (USR-DR164)"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {}
+  },
+  "driver": {
+    "type": "listen_only"
+  },
+  "modes": [
+    "heat"
+  ],
+  "enums": {},
+  "registers": {},
+  "notes": "Does not decode or write. Home Assistant only records raw RS-485 bytes. After a dump, switch this entry to a real profile or add a new JSON under profiles/."
+}

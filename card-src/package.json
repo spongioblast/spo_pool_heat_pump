@@ -1,0 +1,14 @@
+{
+  "name": "spo-pool-heat-pump-card",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "esbuild card.ts --bundle --format=esm --target=es2021 --outfile=../custom_components/spo_pool_heat_pump/www/spo-pool-heat-pump-card.js --loader:.css=text"
+  },
+  "dependencies": {
+    "lit": "^3.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  }
+}

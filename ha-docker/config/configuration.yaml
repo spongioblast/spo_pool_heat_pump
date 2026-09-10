@@ -1,0 +1,13 @@
+default_config:
+
+homeassistant:
+  name: SPO test
+  time_zone: Europe/Berlin
+  unit_system: metric
+  currency: EUR
+  country: DE
+
+logger:
+  default: info
+  logs:
+    custom_components.spo_pool_heat_pump: debug
