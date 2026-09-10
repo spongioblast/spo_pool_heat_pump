@@ -2,7 +2,7 @@
 
 Home Assistant custom integration **SPO Pool Heat Pump (Modbus RTU over RS-485 via USR-DR164)** — inverter pool heat pumps that speak **Modbus RTU on RS-485** (MIDA Cosma / PC1002 verified; Hayward, PHNIX Mini, Fairland community profiles). Transport is a **USR-DR164** in transparent TCP Server mode. This is the Modbus client; do not add Home Assistant’s core Modbus integration.
 
-**SPO** is the product name. GitHub is [@spongioblast](https://github.com/spongioblast). The Home Assistant domain is `spo_pool_heat_pump`. Requires Home Assistant 2025.1 or later.
+The Home Assistant domain is `spo_pool_heat_pump`. Requires Home Assistant 2025.1 or later.
 
 The integration creates a Device with native `climate`, sensors, switches and timer numbers. Service-menu values are not Home Assistant entities — they live in the card Settings dialog (and an optional standalone settings card). A bundled Lovelace card draws the water path (Circuit or Section — pick one in the card editor).
 
