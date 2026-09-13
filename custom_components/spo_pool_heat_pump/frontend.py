@@ -1,12 +1,10 @@
 """Lovelace card static path + extra JS URL.
 
 Needs the http and frontend integrations. The card is registered once via
-add_extra_js_url. A Lovelace module resource in HA 2026.9 can evaluate the
-bundle against a non-global customElements registry, so the element never
-appears for hui-card and the view shows Configuration error. Matching
-resources are deleted. Cleanup retries if Lovelace is not ready on the
-first call. customElements.define is still guarded in the bundle so a
-leftover load is a no-op.
+add_extra_js_url. A Lovelace module resource plus extra JS loads the bundle
+twice (duplicate picker rows). Matching resources are deleted. Cleanup
+retries if Lovelace is not ready on the first call. The bundle defines
+elements after home-assistant so the scoped-registry polyfill is in place.
 """
 
 from __future__ import annotations
@@ -25,6 +23,15 @@ from .const import CARD_STATIC_DIR, CARD_URL_PATH, DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+def _lovelace_store(hass: HomeAssistant):
+    try:
+        from homeassistant.components.lovelace.const import LOVELACE_DATA
+
+        return hass.data.get(LOVELACE_DATA)
+    except ImportError:
+        return hass.data.get("lovelace")
+
+
 async def async_register_card(hass: HomeAssistant) -> None:
     data = hass.data.setdefault(DOMAIN, {})
     if not data.get("card"):
@@ -35,9 +42,12 @@ async def async_register_card(hass: HomeAssistant) -> None:
         if await hass.async_add_executor_job(card.exists):
             digest = await hass.async_add_executor_job(card.read_bytes)
             version = hashlib.sha256(digest).hexdigest()[:12]
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(CARD_STATIC_DIR, str(www), True)]
-        )
+        try:
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(CARD_STATIC_DIR, str(www), False)]
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Static path already registered", exc_info=True)
         add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
         data["card"] = True
     await _purge_card_resources(hass)
@@ -56,7 +66,7 @@ async def async_register_card(hass: HomeAssistant) -> None:
 
 async def _purge_card_resources(hass: HomeAssistant) -> bool:
     try:
-        lovelace = hass.data.get("lovelace")
+        lovelace = _lovelace_store(hass)
         resources = getattr(lovelace, "resources", None) if lovelace else None
         if resources is None:
             return False

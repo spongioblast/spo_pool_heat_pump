@@ -58,7 +58,7 @@ class PoolHeatPumpBinary(PoolHeatPumpEntity, BinarySensorEntity):
         self._is_on = is_on
         self._attr_translation_key = translation_key
         self._attr_unique_id = f"{coordinator.unique_id}_{key}"
-        self._attr_suggested_object_id = suggested_object_id(key)
+        self._object_id_suffix = suggested_object_id(key)
         self._attr_device_class = device_class
         self._attr_entity_category = category
 
@@ -92,7 +92,7 @@ class ProfileBitBinary(PoolHeatPumpEntity, BinarySensorEntity):
         self._bit_name = bit_name
         self._attr_translation_key = bit_name
         self._attr_unique_id = f"{coordinator.unique_id}_{group}_{bit_name}"
-        self._attr_suggested_object_id = suggested_object_id(bit_name)
+        self._object_id_suffix = suggested_object_id(bit_name)
         if ent.get("category") == "diagnostic":
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_entity_registry_enabled_default = bool(ent.get("enabled", False))

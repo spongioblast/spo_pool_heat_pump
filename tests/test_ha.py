@@ -12,7 +12,7 @@ ha = pytest.importorskip("homeassistant")
 from homeassistant.const import CONF_HOST  # noqa: E402
 from homeassistant.exceptions import HomeAssistantError  # noqa: E402
 
-from homeassistant.components.climate import ClimateEntityFeature, HVACMode  # noqa: E402
+from homeassistant.components.climate import ClimateEntityFeature, HVACAction, HVACMode  # noqa: E402
 
 from spo_pool_heat_pump.climate import PoolHeatPumpClimate  # noqa: E402
 from spo_pool_heat_pump.config_flow import PoolHeatPumpConfigFlow  # noqa: E402
@@ -98,6 +98,24 @@ def test_dump_only_climate_has_no_write_features() -> None:
         asyncio.run(entity.async_turn_on())
     with pytest.raises(HomeAssistantError):
         asyncio.run(entity.async_set_hvac_mode(HVACMode.OFF))
+
+
+def test_climate_preheating_when_pump_warming() -> None:
+    coord = MagicMock()
+    coord.profile = load_profile("mida_cosma_pc1002")
+    coord.unique_id = "uid"
+    coord.state = HeatPumpState(
+        available=True,
+        power=True,
+        mode="heat",
+        t_inlet=24.0,
+        setpoint=28.0,
+        outputs={"water_pump": True, "compressor": False},
+    )
+    coord.last_update_success = True
+    coord.device_name = "Pump"
+    entity = PoolHeatPumpClimate(coord)
+    assert entity.hvac_action == HVACAction.PREHEATING
 
 
 def test_climate_turn_on_writes_power_only() -> None:

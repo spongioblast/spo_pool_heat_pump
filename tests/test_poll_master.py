@@ -3,7 +3,12 @@ from __future__ import annotations
 import asyncio
 import time
 
-from spo_pool_heat_pump.const import apply_runtime_overrides, merge_entry_options, migrate_entry_storage
+from spo_pool_heat_pump.const import (
+    apply_runtime_overrides,
+    merge_entry_options,
+    migrate_entry_storage,
+    reload_option_fingerprint,
+)
 from spo_pool_heat_pump.drivers.decode import apply_map
 from spo_pool_heat_pump.drivers.poll_master import PollMasterDriver
 from spo_pool_heat_pump.modbus_rtu import encode_exception, encode_fc01_reply, encode_fc03_reply, parse_frame
@@ -227,3 +232,11 @@ def test_poll_exception_fails_settings_refresh() -> None:
     assert asyncio.run(driver.refresh_settings()) is False
     assert time.monotonic() - started < 0.4
     assert sent
+
+
+def test_reload_fingerprint_includes_host_port() -> None:
+    options = {"profile": "mida_cosma_pc1002"}
+    same = reload_option_fingerprint({"host": "10.0.0.8", "port": 8899}, options)
+    moved = reload_option_fingerprint({"host": "10.0.0.9", "port": 8899}, options)
+    assert same != moved
+    assert reload_option_fingerprint({"host": "10.0.0.8", "port": 8899}, options) == same

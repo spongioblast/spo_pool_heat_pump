@@ -170,10 +170,13 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
             except OSError:
                 errors["base"] = "cannot_connect"
             else:
-                return self.async_update_reload_and_abort(
-                    entry,
-                    data_updates={CONF_HOST: host, CONF_PORT: port},
-                )
+                updates: dict[str, Any] = {
+                    "data_updates": {CONF_HOST: host, CONF_PORT: port},
+                }
+                old_id = entry.unique_id
+                if old_id == f"{entry.data[CONF_HOST]}:{int(entry.data[CONF_PORT])}":
+                    updates["unique_id"] = f"{host}:{port}"
+                return self.async_update_and_abort(entry, **updates)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema(
@@ -187,7 +190,7 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+    def async_get_options_flow(_config_entry: ConfigEntry) -> OptionsFlow:
         return PoolHeatPumpOptionsFlow()
 
 

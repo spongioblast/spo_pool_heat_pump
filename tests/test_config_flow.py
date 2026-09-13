@@ -145,8 +145,9 @@ def test_reconfigure_updates_host() -> None:
         flow = _flow()
         entry = MagicMock()
         entry.data = {CONF_HOST: "10.0.0.8", CONF_PORT: 8899}
+        entry.unique_id = "10.0.0.8:8899"
         flow._get_reconfigure_entry = MagicMock(return_value=entry)
-        flow.async_update_reload_and_abort = MagicMock(
+        flow.async_update_and_abort = MagicMock(
             return_value={"type": "abort", "reason": "reconfigure_successful"}
         )
         form = await flow.async_step_reconfigure()
@@ -155,12 +156,40 @@ def test_reconfigure_updates_host() -> None:
         with patch("spo_pool_heat_pump.config_flow.TcpRtuClient.probe", AsyncMock()):
             result = await flow.async_step_reconfigure({CONF_HOST: "10.0.0.9", CONF_PORT: 8899})
         assert result["reason"] == "reconfigure_successful"
-        flow.async_update_reload_and_abort.assert_called_once()
-        kwargs = flow.async_update_reload_and_abort.call_args
+        flow.async_update_and_abort.assert_called_once()
+        kwargs = flow.async_update_and_abort.call_args
         assert kwargs.args[0] is entry
         assert kwargs.kwargs["data_updates"] == {CONF_HOST: "10.0.0.9", CONF_PORT: 8899}
+        assert kwargs.kwargs["unique_id"] == "10.0.0.9:8899"
 
     asyncio.run(run())
+
+
+def test_reconfigure_serial_unique_id_unchanged() -> None:
+    async def run() -> None:
+        flow = _flow()
+        entry = MagicMock()
+        entry.data = {CONF_HOST: "10.0.0.8", CONF_PORT: 8899}
+        entry.unique_id = "B992604135232"
+        flow._get_reconfigure_entry = MagicMock(return_value=entry)
+        flow.async_update_and_abort = MagicMock(
+            return_value={"type": "abort", "reason": "reconfigure_successful"}
+        )
+        with patch("spo_pool_heat_pump.config_flow.TcpRtuClient.probe", AsyncMock()):
+            await flow.async_step_reconfigure({CONF_HOST: "10.0.0.9", CONF_PORT: 8899})
+        kwargs = flow.async_update_and_abort.call_args.kwargs
+        assert "unique_id" not in kwargs
+        assert kwargs["data_updates"] == {CONF_HOST: "10.0.0.9", CONF_PORT: 8899}
+
+    asyncio.run(run())
+
+
+def test_suggested_object_id_is_suffix_only() -> None:
+    from spo_pool_heat_pump.entity import suggested_object_id
+
+    assert suggested_object_id("inlet") == "inlet"
+    assert suggested_object_id("quiet") == "quiet"
+    assert suggested_object_id() == "pool_heat_pump"
 
 
 def test_reconfigure_cannot_connect() -> None:

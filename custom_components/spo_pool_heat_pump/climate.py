@@ -18,7 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, PRESET_SILENT
 from .cop import resolve_cop
 from .coordinator import PoolHeatPumpConfigEntry, PoolHeatPumpCoordinator
-from .entity import PoolHeatPumpEntity, suggested_object_id
+from .entity import PoolHeatPumpEntity
 from .profiles import profile_registers
 
 PARALLEL_UPDATES = 0
@@ -45,7 +45,6 @@ class PoolHeatPumpClimate(PoolHeatPumpEntity, ClimateEntity):
     def __init__(self, coordinator: PoolHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.unique_id}_climate"
-        self._attr_suggested_object_id = suggested_object_id()
         if coordinator.profile["driver"]["type"] == "listen_only":
             self._attr_hvac_modes = [HVACMode.OFF]
             self._attr_supported_features = ClimateEntityFeature(0)
@@ -137,6 +136,13 @@ class PoolHeatPumpClimate(PoolHeatPumpEntity, ClimateEntity):
             return HVACAction.HEATING
         if state.compressor_on and state.mode == "auto":
             return HVACAction.HEATING if state.auto_is_heating() else HVACAction.COOLING
+        if (
+            state.pump_on
+            and not state.compressor_on
+            and state.has_demand() is not False
+            and (state.mode == "heat" or (state.mode == "auto" and state.auto_is_heating()))
+        ):
+            return HVACAction.PREHEATING
         return HVACAction.IDLE
 
     @property

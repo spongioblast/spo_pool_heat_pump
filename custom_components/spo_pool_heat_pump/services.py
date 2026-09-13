@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 import voluptuous as vol
 
 from .const import DOMAIN
@@ -68,7 +69,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
         except DumpError as err:
             raise HomeAssistantError(translation_domain=DOMAIN, translation_key=err.key) from err
 
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         "refresh_service_menu",
         refresh_service_menu,
@@ -79,7 +81,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
             }
         ),
     )
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         "set_service_menu",
         set_service_menu,
@@ -92,7 +95,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
             }
         ),
     )
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         "start_dump",
         start_dump,
@@ -106,7 +110,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
             }
         ),
     )
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         "stop_dump",
         stop_dump,

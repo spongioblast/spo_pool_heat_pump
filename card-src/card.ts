@@ -52,9 +52,8 @@ function num(st?: HassState): number | null {
 }
 
 function firstClimate(hass: Hass): string | undefined {
-  return (
-    Object.keys(hass.states || {}).find((id) => id.startsWith("climate.") && hass.entities?.[id]?.platform === "spo_pool_heat_pump") ||
-    Object.keys(hass.states || {}).find((id) => id.startsWith("climate."))
+  return Object.keys(hass.states || {}).find(
+    (id) => id.startsWith("climate.") && hass.entities?.[id]?.platform === "spo_pool_heat_pump",
   );
 }
 
@@ -453,19 +452,17 @@ class PoolHeatPumpSettingsCard extends LitElement {
   }
 }
 
-function defineEl(name: string, ctor: CustomElementConstructor) {
-  if (!customElements.get(name)) customElements.define(name, ctor);
+const DOCS_URL = "https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md";
+const DEFINE_FALLBACK_MS = 5000;
+
+function ourClimate(hass: Hass, entityId: string): boolean {
+  if (!entityId.startsWith("climate.")) return false;
+  const platform = hass.entities?.[entityId]?.platform;
+  return !platform || platform === "spo_pool_heat_pump";
 }
 
-defineEl("spo-pool-heat-pump-card", PoolHeatPumpCard);
-defineEl("spo-pool-heat-pump-card-editor", PoolHeatPumpCardEditor);
-defineEl("spo-pool-heat-pump-settings-card", PoolHeatPumpSettingsCard);
-defineEl("spo-pool-heat-pump-settings-card-editor", PoolHeatPumpSettingsCardEditor);
-
 function getEntitySuggestion(hass: Hass, entityId: string) {
-  if (!entityId.startsWith("climate.")) return null;
-  const platform = hass.entities?.[entityId]?.platform;
-  if (platform && platform !== "spo_pool_heat_pump") return null;
+  if (!ourClimate(hass, entityId)) return null;
   return {
     config: {
       type: "custom:spo-pool-heat-pump-card",
@@ -477,19 +474,76 @@ function getEntitySuggestion(hass: Hass, entityId: string) {
   };
 }
 
-type CustomCardsWindow = { customCards: object[] };
+function getSettingsEntitySuggestion(hass: Hass, entityId: string) {
+  if (!ourClimate(hass, entityId)) return null;
+  return {
+    config: {
+      type: "custom:spo-pool-heat-pump-settings-card",
+      entity: entityId,
+    },
+  };
+}
+
+type CustomCardEntry = { type: string; [key: string]: unknown };
+type CustomCardsWindow = { customCards: CustomCardEntry[] };
 const win = window as unknown as CustomCardsWindow;
 win.customCards = win.customCards || [];
-win.customCards.push({
-  type: "spo-pool-heat-pump-card",
-  name: "SPO Pool Heat Pump",
-  description: "Circuit / section schematic for the SPO Pool Heat Pump climate entity",
-  preview: true,
-  getEntitySuggestion,
-});
-win.customCards.push({
-  type: "spo-pool-heat-pump-settings-card",
-  name: "SPO Pool Heat Pump settings",
-  description: "Full register and service-menu catalog for a SPO Pool Heat Pump climate entity",
-  preview: false,
-});
+if (!win.customCards.some((card) => card.type === "spo-pool-heat-pump-card")) {
+  win.customCards.push({
+    type: "spo-pool-heat-pump-card",
+    name: "SPO Pool Heat Pump",
+    description: "Circuit / section schematic for the SPO Pool Heat Pump climate entity",
+    preview: true,
+    documentationURL: DOCS_URL,
+    getEntitySuggestion,
+  });
+}
+if (!win.customCards.some((card) => card.type === "spo-pool-heat-pump-settings-card")) {
+  win.customCards.push({
+    type: "spo-pool-heat-pump-settings-card",
+    name: "SPO Pool Heat Pump settings",
+    description: "Full register and service-menu catalog for a SPO Pool Heat Pump climate entity",
+    preview: false,
+    documentationURL: DOCS_URL,
+    getEntitySuggestion: getSettingsEntitySuggestion,
+  });
+}
+
+function defineEl(name: string, ctor: CustomElementConstructor) {
+  try {
+    const registry = window.customElements;
+    if (!registry.get(name)) registry.define(name, ctor);
+  } catch {
+    // Extra JS and a leftover Lovelace resource both load this module.
+  }
+}
+
+function defineAll() {
+  defineEl("spo-pool-heat-pump-card", PoolHeatPumpCard);
+  defineEl("spo-pool-heat-pump-card-editor", PoolHeatPumpCardEditor);
+  defineEl("spo-pool-heat-pump-settings-card", PoolHeatPumpSettingsCard);
+  defineEl("spo-pool-heat-pump-settings-card-editor", PoolHeatPumpSettingsCardEditor);
+}
+
+function whenHomeAssistant(cb: () => void) {
+  if (window.customElements.get("home-assistant")) {
+    cb();
+    return;
+  }
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    cb();
+  };
+  window.customElements.whenDefined("home-assistant").then(finish);
+  const started = Date.now();
+  const tick = window.setInterval(() => {
+    if (window.customElements.get("home-assistant") || Date.now() - started >= DEFINE_FALLBACK_MS) {
+      window.clearInterval(tick);
+      finish();
+    }
+  }, 50);
+}
+
+whenHomeAssistant(defineAll);

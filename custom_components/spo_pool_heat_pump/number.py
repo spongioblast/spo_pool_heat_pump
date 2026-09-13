@@ -47,15 +47,18 @@ class PoolHeatPumpNumber(PoolHeatPumpEntity, NumberEntity):
         self._key = key
         self._attr_translation_key = translation_key
         self._attr_unique_id = f"{coordinator.unique_id}_{key}"
-        self._attr_suggested_object_id = suggested_object_id(key)
+        self._object_id_suffix = suggested_object_id(key)
         self._attr_native_min_value = minimum
         self._attr_native_max_value = maximum
         self._attr_native_step = 1
         self._attr_native_unit_of_measurement = unit
 
     @property
-    def native_value(self) -> float:
-        return float(self.coordinator.state.extras.get(self._key) or 0)
+    def native_value(self) -> float | None:
+        raw = self.coordinator.state.extras.get(self._key)
+        if raw is None:
+            return None
+        return float(raw)
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.driver.write_register(self._key, int(value))

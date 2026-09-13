@@ -6,6 +6,15 @@ homeassistant:
   unit_system: metric
   currency: EUR
   country: DE
+  # Lab-only: browser tests via the WSL proxy skip the login form.
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks:
+        - 127.0.0.1/32
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+      allow_bypass_login: true
+    - type: homeassistant
 
 logger:
   default: info

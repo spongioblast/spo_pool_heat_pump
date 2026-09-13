@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>card registry check</title>
+<script type="module">
+  import "./spo-pool-heat-pump-card.js";
+  const report = () => {
+    const cards = (window.customCards || []).map((c) => c.type);
+    document.body.textContent = JSON.stringify({
+      cards,
+      defined: !!customElements.get("spo-pool-heat-pump-card"),
+      settings: !!customElements.get("spo-pool-heat-pump-settings-card"),
+      ha: !!customElements.get("home-assistant"),
+    });
+  };
+  window.customElements.whenDefined("spo-pool-heat-pump-card").then(report);
+  setTimeout(report, 5500);
+</script>

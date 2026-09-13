@@ -13,29 +13,22 @@ ENTITY_OBJECT_PREFIX = "pool_heat_pump"
 
 
 def suggested_object_id(suffix: str | None = None) -> str:
-    """HA object_id: device slug, plus a short suffix for child entities."""
-    if suffix:
-        return f"{ENTITY_OBJECT_PREFIX}_{suffix}"
-    return ENTITY_OBJECT_PREFIX
-
-
-def configuration_url_for(host: str | None) -> str | None:
-    if not host:
-        return None
-    if host in {"replay", "localhost", "127.0.0.1"}:
-        return None
-    if host.replace(".", "").isdigit() and host.count(".") == 3:
-        return f"http://{host}"
-    if "." in host:
-        return f"http://{host}"
-    return None
+    """English-stable object_id suffix. HA prefixes the device slug."""
+    return suffix or ENTITY_OBJECT_PREFIX
 
 
 class PoolHeatPumpEntity(CoordinatorEntity[PoolHeatPumpCoordinator]):
     _attr_has_entity_name = True
+    _object_id_suffix: str | None = None
 
     def __init__(self, coordinator: PoolHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
+
+    @property
+    def suggested_object_id(self) -> str | None:
+        if self._object_id_suffix:
+            return self._object_id_suffix
+        return super().suggested_object_id
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -55,3 +48,15 @@ class PoolHeatPumpEntity(CoordinatorEntity[PoolHeatPumpCoordinator]):
     @property
     def available(self) -> bool:
         return self.coordinator.last_update_success and self.coordinator.state.available
+
+
+def configuration_url_for(host: str | None) -> str | None:
+    if not host:
+        return None
+    if host in {"replay", "localhost", "127.0.0.1"}:
+        return None
+    if host.replace(".", "").isdigit() and host.count(".") == 3:
+        return f"http://{host}"
+    if "." in host:
+        return f"http://{host}"
+    return None

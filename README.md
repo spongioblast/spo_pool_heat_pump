@@ -2,11 +2,11 @@
 
 Home Assistant custom integration **SPO Pool Heat Pump (Modbus RTU over RS-485 via USR-DR164)** — inverter pool heat pumps that speak **Modbus RTU on RS-485** (MIDA Cosma / PC1002 verified; Hayward, PHNIX Mini, Fairland community profiles). Transport is a **USR-DR164** in transparent TCP Server mode. This is the Modbus client; do not add Home Assistant’s core Modbus integration.
 
-**SPO** is the product name. GitHub is [@spongioblast](https://github.com/spongioblast). The Home Assistant domain is `spo_pool_heat_pump`. Requires Home Assistant 2025.1 or later.
+Requires Home Assistant 2026.6.0 or later.
 
 The integration creates a Device with native `climate`, sensors, switches and timer numbers. Service-menu values are not Home Assistant entities — they live in the card Settings dialog (and an optional standalone settings card). A bundled Lovelace card draws the water path (Circuit or Section — pick one in the card editor).
 
-After HACS install and a restart, this Home Assistant also serves the same walkthrough at **`/spo_pool_heat_pump/setup.html`**.
+After HACS install and a restart, this Home Assistant also serves the same walkthrough at `/spo_pool_heat_pump/setup.html`.
 
 ## What it looks like
 
@@ -30,12 +30,24 @@ Circuit is the default schematic. Section is the cutaway. Both follow the Home A
 
 ## Install the integration
 
-1. HACS → Custom repositories → [https://github.com/spongioblast/spo_pool_heat_pump](https://github.com/spongioblast/spo_pool_heat_pump) → **Integration**.
-2. Restart Home Assistant.
-3. Wire and configure the DR164 (next three sections), then **Settings → Devices & services → Add integration → SPO Pool Heat Pump**.
-4. Host = reserved DR164 IP, port `8899`.
+This is a **HACS custom integration**, not a Home Assistant Core add-on. It is not in the HACS default store. Install it from GitHub.
 
-Manual install: copy **only** `custom_components/spo_pool_heat_pump` into `<config>/custom_components/` and restart. Do not copy `tools/`, `tests/`, `ha-docker/`, or `card-src/` — HACS does not install those either.
+### HACS (recommended)
+
+1. **HACS → ⋮ → Custom repositories**.
+2. Repository: [https://github.com/spongioblast/spo_pool_heat_pump](https://github.com/spongioblast/spo_pool_heat_pump)
+3. Type: **Integration** → Add.
+4. HACS → search **SPO Pool Heat Pump** → **Download**.
+5. If GitHub has a **Release** (for example `1.1.0`), HACS installs that. If there is no release, it follows `main`.
+6. **Restart** Home Assistant.
+
+The Lovelace card is included. Do not add a Lovelace resource for it.
+
+Then wire the DR164 (next three sections) and **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = reserved DR164 IP, port `8899`. After a restart this Home Assistant also serves the walkthrough at `/spo_pool_heat_pump/setup.html`.
+
+### Manual install
+
+Copy **only** `custom_components/spo_pool_heat_pump` into `<config>/custom_components/` and restart. Then add the integration the same way. Do not copy `tools/`, `tests/`, `ha-docker/`, or `card-src/` — HACS does not install those either.
 
 Profile-author notes: [docs/profiles.md](docs/profiles.md).
 
@@ -45,12 +57,14 @@ The factory WiFi / DTU port already carries all four pins the DR164 needs — **
 
 ![DR164 + / A / B / G wired in parallel on the heat-pump WiFi / RS-485 port](docs/images/dr164-parallel-tap.png)
 
-| DR164 | Heat-pump bus |
-| --- | --- |
-| `DC+` / `+` | `+` — 12 V rail, shared with the WiFi module |
-| `A / RX` | `A` |
-| `B / TX` | `B` |
+
+| DR164       | Heat-pump bus                                              |
+| ----------- | ---------------------------------------------------------- |
+| `DC+` / `+` | `+` — 12 V rail, shared with the WiFi module               |
+| `A / RX`    | `A`                                                        |
+| `B / TX`    | `B`                                                        |
 | `GND` / `G` | `G` — common ground; a separate `DC−` screw also goes here |
+
 
 Swap A and B if every frame fails CRC. The DR164 accepts 5–36 V, so the pump's 12 V is in range.
 
@@ -68,11 +82,10 @@ One Home Assistant TCP client only.
 
 ## 3. Set the work mode, then add it in Home Assistant
 
-On the DR164 web UI:
+On the DR164 web UI (save and restart after these pages):
 
-- Socket A = **TCP Server**, **transparent**, port **8899**.
-- **Not** Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.
-- UART **9600 8N1**, idle / time trigger **20 ms**. Length trigger stays 1400.
+1. **Serial Port:** **9600 8N1**. Packaging Interval **20 ms**, Length **1400**.
+2. **Net settings → Socket A:** **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.
 
 Then Add integration → SPO Pool Heat Pump → that host and port. Detection listens ~5 s for the 2001×90 broadcast. Write path defaults to **DTU slave 99** when slave 99 is on the bus, otherwise **slave 2**. If the bus does not match a shipped map, pick **Unknown heat pump — dump only** and capture a bus dump from the card Settings. Leave **Allow changing service settings** off (see below).
 
@@ -95,7 +108,16 @@ The sliders icon (next to Quiet and Power) opens Settings. That dialog has every
 
 COP is drawn under the unit only when it is non-zero: the controller register (2040) if the board publishes one, or a calculated value from the manual flow, ΔT, and electrical power. ΔT stays on the left.
 
-The card is registered automatically via extra JS. Do not add a Lovelace resource for it — HA 2026.9 then fails to define the element and the view shows Configuration error. The panel clock (3015–3017) is read-only — no DTU clock write has been observed.
+The card is registered automatically via extra JS. After install, **restart Home Assistant and hard-refresh the dashboard** (Ctrl+F5 / Cmd+Shift+R). Extra modules are injected only into a freshly rendered `index.html`. Do not add a Lovelace resource for the card — a second load duplicates it in Add to dashboard and can leave the view on Configuration error. The panel clock (3015–3017) is read-only — no DTU clock write has been observed.
+
+If **Add to dashboard** search for “SPO Pool Heat Pump” shows only Manual YAML:
+
+1. Hard-refresh the dashboard after the restart.
+2. Open `/spo_pool_heat_pump/spo-pool-heat-pump-card.js` — it must be JavaScript, HTTP 200.
+3. View source of `/` and confirm it contains `import("/spo_pool_heat_pump/spo-pool-heat-pump-card.js`.
+4. Do not add a Dashboard resource.
+
+Until the extra module runs, you can still add the card in YAML:
 
 Example dashboard:
 
@@ -120,23 +142,29 @@ views:
           - sensor.pool_heat_pump_energy_total
 ```
 
+
+
 ## Writes
 
 Default writes go to **DTU slave 99** when the factory WiFi module is present. Pumps with no DTU use **slave 2** (second-panel responder) after the 1001/1091 pages are seeded (`spo_pool_heat_pump.refresh_service_menu`). PHNIX Mini lists both paths. Writing to the panel at address 1 is unproven.
 
 Fairland CN13 / IPS Pro are polled. Set **Modbus slave (H37)** if the unit is not on the profile default (CN13 50, IPS Pro 1).
 
-| Parameter | Where | What it is |
-| --- | --- | --- |
-| Host | Add / Reconfigure | Reserved LAN IP of the USR-DR164 |
-| Port | Add / Reconfigure | Socket A port (factory `8899`) |
-| Profile | Add / Configure | How the unit talks (Cosma, Mini, Hayward, CN13, IPS Pro, or dump only) |
-| Write path | Add / Configure | `dtu_99` when the factory WiFi module is on the bus; `slave2` if it is not |
-| Modbus slave (H37) | Add / Configure | Fairland poll address. CN13 default 50, IPS Pro usually 1 |
-| Poll interval | Add / Configure | Seconds between Fairland polls. Cosma / Mini broadcast and ignore this |
-| Allow changing service settings | Add / Configure | Off by default. Required before H/F/D writes |
-| Use manual flow for COP | Configure | Local COP from flow × ΔT × power; not written to the bus |
-| Water flow (m³/h) | Configure | Circulation used for that COP. `0` means unused |
+
+| Parameter                       | Where             | What it is                                                                 |
+| ------------------------------- | ----------------- | -------------------------------------------------------------------------- |
+| Host                            | Add / Reconfigure | Reserved LAN IP of the USR-DR164                                           |
+| Port                            | Add / Reconfigure | Socket A port (factory `8899`)                                             |
+| Profile                         | Add / Configure   | How the unit talks (Cosma, Mini, Hayward, CN13, IPS Pro, or dump only)     |
+| Write path                      | Add / Configure   | `dtu_99` when the factory WiFi module is on the bus; `slave2` if it is not |
+| Modbus slave (H37)              | Add / Configure   | Fairland poll address. CN13 default 50, IPS Pro usually 1                  |
+| Poll interval                   | Add / Configure   | Seconds between Fairland polls. Cosma / Mini broadcast and ignore this     |
+| Allow changing service settings | Add / Configure   | Off by default. Required before H/F/D writes                               |
+| Use manual flow for COP         | Configure         | Local COP from flow × ΔT × power; not written to the bus                   |
+| Water flow (m³/h)               | Configure         | Circulation used for that COP. `0` means unused                            |
+
+
+
 
 ## Development
 
@@ -210,38 +238,54 @@ These are integration actions (`spo_pool_heat_pump.*`). The card Settings dialog
 
 `spo_pool_heat_pump.start_dump` captures raw RS-485 bytes from the DR164.
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `duration` | no | Seconds. `0` runs until the ~40 MB cap or Stop. Default 900 |
-| `note` | no | Stored in the dump header (what you are about to do) |
-| `include_writes` | no | Also record bytes Home Assistant sends. Default on |
-| `entry_id` / `device_id` | no | Which heat pump, if more than one |
+
+| Field                    | Required | Description                                                 |
+| ------------------------ | -------- | ----------------------------------------------------------- |
+| `duration`               | no       | Seconds. `0` runs until the ~40 MB cap or Stop. Default 900 |
+| `note`                   | no       | Stored in the dump header (what you are about to do)        |
+| `include_writes`         | no       | Also record bytes Home Assistant sends. Default on          |
+| `entry_id` / `device_id` | no       | Which heat pump, if more than one                           |
+
+
+
 
 ### Stop bus dump
 
 `spo_pool_heat_pump.stop_dump` closes the running capture.
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `entry_id` / `device_id` | no | Which heat pump, if more than one |
+
+| Field                    | Required | Description                       |
+| ------------------------ | -------- | --------------------------------- |
+| `entry_id` / `device_id` | no       | Which heat pump, if more than one |
+
+
+
 
 ### Refresh service menu
 
 `spo_pool_heat_pump.refresh_service_menu` does a one-shot read of the service-menu pages (1001 / 1091 / 1181). Needed on slave-2 setups before those rows populate.
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `entry_id` / `device_id` | no | Which heat pump, if more than one |
+
+| Field                    | Required | Description                       |
+| ------------------------ | -------- | --------------------------------- |
+| `entry_id` / `device_id` | no       | Which heat pump, if more than one |
+
+
+
 
 ### Set service setting
 
 `spo_pool_heat_pump.set_service_menu` writes one H/F/D (or other special-menu) key. **Allow changing service settings** must be on. Wrong values can damage the unit.
 
-| Field | Required | Description |
-| --- | --- | --- |
-| `key` | yes | Parameter id, e.g. `h06_min_freq_heat` |
-| `value` | yes | New value |
-| `entry_id` / `device_id` | no | Which heat pump, if more than one |
+
+| Field                    | Required | Description                            |
+| ------------------------ | -------- | -------------------------------------- |
+| `key`                    | yes      | Parameter id, e.g. `h06_min_freq_heat` |
+| `value`                  | yes      | New value                              |
+| `entry_id` / `device_id` | no       | Which heat pump, if more than one      |
+
+
+
 
 ## Why not Home Assistant’s Modbus integration?
 
@@ -261,16 +305,21 @@ Files in `config/spo_pool_heat_pump_dumps/` are not deleted. Remove those captur
 
 ## Troubleshooting
 
-| Symptom | What to try |
-| --- | --- |
-| Cannot connect / add-integration fails | Reserved IP, Socket A = TCP Server on 8899, pump powered. Then swap RS-485 A/B |
-| Every frame fails CRC / no broadcast | Swap A and B. Confirm UART 9600 8N1 and idle 20 ms |
-| Already configured | This DR164 (or this serial) already has an entry. Open that one, or **Reconfigure** its host/port |
-| Entities unavailable | One HA client only on port 8899. If the IP changed, **Reconfigure**. Cosma needs the 2001 broadcast; Fairland needs H37 |
-| Dump folder full | `config/spo_pool_heat_pump_dumps/` is over ~200 MB. Delete old `.log` / `.bin` from the card dump list |
-| Writes do nothing | Write path: DTU slave 99 only with the WiFi module present. No DTU → slave 2. Dump-only never writes |
-| Service-menu write refused | Enable **Allow changing service settings** under Configure |
-| Core Modbus / DR164 “Modbus gateway” | Do not add those. See [Why not Home Assistant’s Modbus integration?](#why-not-home-assistants-modbus-integration) |
+
+| Symptom                                | What to try                                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Cannot connect / add-integration fails | Reserved IP, Socket A = TCP Server on 8899, pump powered. Then swap RS-485 A/B                                          |
+| Every frame fails CRC / no broadcast   | Swap A and B. Confirm UART 9600 8N1 and idle 20 ms                                                                      |
+| Already configured                     | This DR164 (or this serial) already has an entry. Open that one, or **Reconfigure** its host/port                       |
+| Entities unavailable                   | One HA client only on port 8899. If the IP changed, **Reconfigure**. Cosma needs the 2001 broadcast; Fairland needs H37 |
+| Dump folder full                       | `config/spo_pool_heat_pump_dumps/` is over ~200 MB. Delete old `.log` / `.bin` from the card dump list                  |
+| Writes do nothing                      | Write path: DTU slave 99 only with the WiFi module present. No DTU → slave 2. Dump-only never writes                    |
+| Service-menu write refused             | Enable **Allow changing service settings** under Configure                                                              |
+| Core Modbus / DR164 “Modbus gateway”   | Do not add those. See [Why not Home Assistant’s Modbus integration?](#why-not-home-assistants-modbus-integration)       |
+| Add to dashboard only shows Manual YAML | Hard-refresh after restart. Confirm the card JS URL is 200. Do not add a Lovelace resource. YAML add still works.      |
+
+
+
 
 ## License
 

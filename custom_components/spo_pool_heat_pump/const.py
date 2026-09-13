@@ -88,7 +88,11 @@ def service_menu_writes_enabled(data: dict, options: dict | None = None) -> bool
 
 def reload_option_fingerprint(data: dict, options: dict | None = None) -> tuple:
     opts = options or {}
-    return tuple(opts.get(key, data.get(key)) for key in RELOAD_OPTION_KEYS)
+    return (
+        data.get(CONF_HOST),
+        data.get(CONF_PORT),
+        *(opts.get(key, data.get(key)) for key in RELOAD_OPTION_KEYS),
+    )
 
 
 def apply_runtime_overrides(profile: dict, data: dict, options: dict | None = None) -> dict:

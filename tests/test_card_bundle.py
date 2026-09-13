@@ -59,6 +59,10 @@ def test_card_bundle_committed() -> None:
     assert "this._params =" in text
     assert "getGridOptions" in text
     assert "customElements.get" in text
+    assert "documentationURL" in text
+    assert "whenDefined" in text
+    assert "home-assistant" in text
+    assert "getSettingsEntitySuggestion" in text or "spo-pool-heat-pump-settings-card" in text
     assert "Administrator only" in text
     assert "is_admin === true" in text or "is_admin===true" in text
     assert "applyView" not in text

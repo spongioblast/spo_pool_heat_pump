@@ -111,13 +111,11 @@
 
     <h2>3. Set the DR164 work mode</h2>
     <div class="step">
-      <p>On the DR164 web UI (now at the reserved LAN IP):</p>
-      <ul>
-        <li><strong>Socket A</strong> = <strong>TCP Server</strong>, <strong>transparent</strong> (pass-through). Port <span class="k">8899</span>.</li>
-        <li><strong>Not</strong> Modbus gateway, MQTT, HTTP client, PUSR cloud, heartbeat, registration, or Event.</li>
-        <li>Serial / UART: <span class="k">9600 8N1</span>.</li>
-        <li>UART <strong>time / idle trigger</strong> = <span class="k">20 ms</span> (<span class="k">AT+UARTTM</span>). Leave the length trigger at 1400.</li>
-      </ul>
+      <p>On the DR164 web UI (now at the reserved LAN IP). Save and restart after these pages:</p>
+      <ol>
+        <li><strong>Serial Port:</strong> <span class="k">9600 8N1</span>. Packaging Interval <span class="k">20 ms</span>, Length <span class="k">1400</span>.</li>
+        <li><strong>Net settings → Socket A:</strong> <strong>TCP Server</strong>, port <span class="k">8899</span>. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.</li>
+      </ol>
       <p>The heat pump speaks Modbus RTU on the wire. The DR164 only copies those bytes onto TCP. Home Assistant is the Modbus client.</p>
     </div>
 

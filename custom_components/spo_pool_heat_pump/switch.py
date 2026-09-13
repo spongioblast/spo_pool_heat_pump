@@ -53,7 +53,7 @@ class PoolHeatPumpSwitch(PoolHeatPumpEntity, SwitchEntity):
         self._attr_translation_key = spec.translation_key
         self._attr_unique_id = f"{coordinator.unique_id}_{spec.key}"
         suffix = "quiet" if spec.key == "silent" else spec.key
-        self._attr_suggested_object_id = suggested_object_id(suffix)
+        self._object_id_suffix = suggested_object_id(suffix)
         self._attr_entity_category = spec.entity_category
 
     @property
@@ -79,7 +79,7 @@ class PoolHeatPumpWriteSwitch(PoolHeatPumpEntity, SwitchEntity):
         self._key = key
         self._attr_translation_key = translation_key
         self._attr_unique_id = f"{coordinator.unique_id}_{key}"
-        self._attr_suggested_object_id = suggested_object_id(key)
+        self._object_id_suffix = suggested_object_id(key)
         self._attr_entity_category = category
 
     @property

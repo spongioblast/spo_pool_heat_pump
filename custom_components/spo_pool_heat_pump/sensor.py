@@ -166,7 +166,7 @@ class PoolHeatPumpSensor(ThrottledSensorMixin, PoolHeatPumpEntity, SensorEntity)
         self._key = spec.key
         self._attr_translation_key = spec.translation_key
         self._attr_unique_id = f"{coordinator.unique_id}_{spec.key}"
-        self._attr_suggested_object_id = suggested_object_id(spec.key)
+        self._object_id_suffix = suggested_object_id(spec.key)
         self._attr_device_class = spec.device_class
         self._attr_state_class = spec.state_class
         self._attr_native_unit_of_measurement = spec.unit
@@ -190,7 +190,7 @@ class EnergyTotalSensor(ThrottledSensorMixin, PoolHeatPumpEntity, RestoreSensor)
     def __init__(self, coordinator: PoolHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.unique_id}_energy_total"
-        self._attr_suggested_object_id = suggested_object_id("energy_total")
+        self._object_id_suffix = suggested_object_id("energy_total")
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -214,7 +214,7 @@ class CopDisplaySensor(ThrottledSensorMixin, PoolHeatPumpEntity, SensorEntity):
     def __init__(self, coordinator: PoolHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.unique_id}_cop_display"
-        self._attr_suggested_object_id = suggested_object_id("cop")
+        self._object_id_suffix = suggested_object_id("cop")
 
     def _resolved(self) -> tuple[float | None, str | None]:
         return resolve_cop(self.coordinator.state, self.coordinator.cop_options)
@@ -236,7 +236,7 @@ class PanelClockSensor(ThrottledSensorMixin, PoolHeatPumpEntity, SensorEntity):
     def __init__(self, coordinator: PoolHeatPumpCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.unique_id}_panel_clock"
-        self._attr_suggested_object_id = suggested_object_id("panel_clock")
+        self._object_id_suffix = suggested_object_id("panel_clock")
 
     @property
     def native_value(self) -> str | None:
@@ -255,7 +255,7 @@ class ProfileRegisterSensor(ThrottledSensorMixin, PoolHeatPumpEntity, SensorEnti
         self._key = key
         self._attr_translation_key = key
         self._attr_unique_id = f"{coordinator.unique_id}_{key}"
-        self._attr_suggested_object_id = suggested_object_id(key)
+        self._object_id_suffix = suggested_object_id(key)
         self._attr_device_class = _DEVICE_CLASS.get(str(ent.get("device_class") or ""))
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_native_unit_of_measurement = _UNITS.get(str(spec.get("unit") or ""))
