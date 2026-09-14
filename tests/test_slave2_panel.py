@@ -486,17 +486,53 @@ def test_set_mode_drops_pending_setpoint() -> None:
     assert "setpoint" not in driver.pending
 
 
-def test_slave2_unseeded_write_does_not_fc03_the_display() -> None:
+def test_slave2_unseeded_write_reads_only_that_page_once() -> None:
+    # No board push within the wait: one FC03 to slave 1 for the page that holds
+    # the register, nothing else. Display does not answer -> SettingsUnseeded,
+    # and no 3011 bit is raised.
     sent: list[bytes] = []
 
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, WRITE_PATH_SLAVE2)
+    profile = load_profile("mida_cosma_pc1002")
+    profile["service_menu"]["read"]["timeout_s"] = 0.01
+    driver = Pc1002BusDriver(profile, send, WRITE_PATH_SLAVE2)
     driver.page_seed_wait_s = 0.01
     with pytest.raises(SettingsUnseeded):
-        asyncio.run(driver.set_mode("heat"))
-    assert sent == []
+        asyncio.run(driver.set_setpoint(30.0, which="setpoint_heat"))
+    assert sent == [encode_fc03(1, 1091, 90)]
+    assert driver.slave2.flags_3011 == 0
+
+
+def test_slave2_unseeded_write_seeds_from_display_reply_then_writes() -> None:
+    # Live regression 03b4f19: after an HA restart 1091 is never pushed to slave 2
+    # unless a panel value changes, so the first setpoint change must fall back to
+    # the display's copy and then overlay it like any other write.
+    driver: Pc1002BusDriver | None = None
+    sent: list[bytes] = []
+
+    async def send(frame: bytes) -> None:
+        sent.append(frame)
+        req = parse_frame(frame)
+        assert req is not None and driver is not None
+        assert (req.slave, req.function, req.start) == (1, 3, 1091)
+        driver.handle_frame(encode_fc03_reply(1, _page_1091(280)))
+
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, WRITE_PATH_SLAVE2)
+    driver.page_seed_wait_s = 0.01
+    # Only 1001 came from the board (a mode was changed earlier); 1091 never did.
+    driver.handle_frame(encode_fc16(2, 1001, page_1001()))
+    driver.handle_frame(broadcast(r2013=280))
+    assert not driver.slave2.page_seeded(1136)
+    asyncio.run(driver.set_setpoint(30.0, which="setpoint_heat"))
+    assert sent == [encode_fc03(1, 1091, 90)]
+    assert driver.slave2.page_seeded(1136)
+    assert driver.slave2.flags_3011 & FLAG_SETPOINT
+    reply = parse_frame(driver.maybe_slave2_reply(encode_fc03(2, 1091, 90)))
+    assert reply is not None and reply.values[1136 - 1091] == 300
+    assert driver.slave2.flags_3011 == 0, "bit drops once the board read the page"
+    assert driver.state.setpoint_heat == 30.0
 
 
 def test_zero_menu_page_is_rejected() -> None:

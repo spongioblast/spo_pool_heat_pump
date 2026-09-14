@@ -22,7 +22,7 @@ from .decode import apply_map
 from .pending import DEFAULT_TTL_S as PENDING_TTL_S
 from .pending import PAGE_TTL_S, PendingWrites
 from .settings import SettingsCache
-from .slave2 import SettingsUnseeded, Slave2Responder
+from .slave2 import SettingsUnseeded, Slave2Responder, _page_of
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,8 +34,21 @@ _PER_MODE_SETPOINT = {
     "cool": "setpoint_cool",
     "auto": "setpoint_auto",
 }
-# Board pushes 1001/1091/1181 every cycle (~1.7 s). Wait one extra cycle plus slack
-# before giving up; do not FC03-read the display (that made HA a second master).
+# How our copy of a settings page gets seeded on the slave-2 path.
+#
+# The board does NOT push 1001/1091/1181 to the displays every cycle. DR164 dumps
+# 2026-09-14 (three 15-min windows): pushes to slave 1/2 came only right after a
+# page *changed* (a write), 1091 to slave 2 was 0 / 5 / 1 times; the ~once-a-minute
+# pushes go to the WiFi module (slave 99) and slave 2 only rides along on those.
+# After a Home Assistant restart 1091 therefore stays unseeded until the module is
+# pushed (a minute or more; never if no module is plugged in) or someone changes a
+# setpoint on the panel. Build 03b4f19 waited 3 s and raised
+# "settings page for 1136 is not seeded" on the live box.
+#
+# So: wait briefly for a push (cheap, and the board may be mid-push), then do the
+# one-shot FC03 read of the display that ede2449 did all afternoon without a
+# collision. What did collide (11:51) was the *re-read on a 3011 flag change*
+# after a failed page read; that stays removed on this path.
 PAGE_SEED_WAIT_S = 3.0
 
 
@@ -264,6 +277,13 @@ class Pc1002BusDriver(HeatPumpDriver):
             if not self.slave2.page_seeded(register):
                 await self._wait_for_page_seed(register)
             if not self.slave2.page_seeded(register):
+                # No push came (see PAGE_SEED_WAIT_S). Read just this page from the
+                # display once, under the bus lock; the transport holds the frame
+                # until the bus has been idle one gap. Same path as the startup
+                # seed and the refresh_service_menu service.
+                page = _page_of(register)
+                await self.refresh_settings(only=[page] if page else None)
+            if not self.slave2.page_seeded(register):
                 raise SettingsUnseeded(f"settings page for {register} is not seeded")
             self.slave2.queue_write(register, encoded)
             self._republish_if_seeded()
@@ -275,7 +295,7 @@ class Pc1002BusDriver(HeatPumpDriver):
             await result
 
     async def _wait_for_page_seed(self, register: int) -> None:
-        """Wait for the board to push the page. Never FC03-read the display."""
+        """Give the board a moment to push the page before we read it ourselves."""
         deadline = time.monotonic() + self.page_seed_wait_s
         while not self.slave2.page_seeded(register):
             remaining = deadline - time.monotonic()

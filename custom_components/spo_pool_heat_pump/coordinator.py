@@ -286,8 +286,12 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         self.hass.async_create_task(self._async_refresh_settings_once())
 
     async def _async_refresh_settings_once(self) -> None:
-        if getattr(self.driver, "write_path", None) == WRITE_PATH_SLAVE2:
-            return
+        # Runs on every write path, slave 2 included. The board only pushes
+        # 1001/1091/1181 to the panels when a page changed; the periodic pushes go
+        # to the WiFi module (slave 99). Without this one read after start-up the
+        # slave-2 copy of 1091 stays empty until someone touches the panel, and the
+        # first setpoint change fails with SettingsUnseeded (live box, 03b4f19).
+        # See PAGE_SEED_WAIT_S in drivers/pc1002_bus.py for the dump numbers.
         try:
             await self.driver.refresh_settings()
         except Exception:  # noqa: BLE001

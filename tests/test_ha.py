@@ -186,7 +186,9 @@ def test_coordinator_stale_does_not_reconnect_while_frames_arrive() -> None:
     asyncio.run(run())
 
 
-def test_slave2_skips_startup_settings_refresh() -> None:
+def test_startup_settings_refresh_runs_on_every_write_path() -> None:
+    # Slave 2 needs the one-shot read too: the board pushes pages to the panels
+    # only on change, so 1091 would otherwise stay unseeded after a restart.
     async def run() -> None:
         hass = MagicMock()
         hass.loop = asyncio.get_running_loop()
@@ -198,11 +200,13 @@ def test_slave2_skips_startup_settings_refresh() -> None:
         entry.entry_id = "e1"
         coord = PoolHeatPumpCoordinator(hass, entry, MagicMock())
         coord.driver.refresh_settings = AsyncMock()
+        assert coord.driver.write_path == "slave2"
         await coord._async_refresh_settings_once()
-        coord.driver.refresh_settings.assert_not_called()
+        coord.driver.refresh_settings.assert_awaited_once()
         coord.driver.write_path = "dtu_99"
+        coord.driver.refresh_settings.reset_mock()
         await coord._async_refresh_settings_once()
-        coord.driver.refresh_settings.assert_awaited()
+        coord.driver.refresh_settings.assert_awaited_once()
 
     asyncio.run(run())
 
