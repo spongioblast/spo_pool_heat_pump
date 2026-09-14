@@ -129,6 +129,8 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         self.driver.service_menu_writes = service_menu_writes_enabled(entry.data, entry.options)
         if not self.driver.is_push and self.update_interval is None:
             self.update_interval = timedelta(seconds=int(self.profile["driver"].get("poll_interval", 10)))
+        if self.update_interval is not None and hasattr(self.driver, "set_poll_interval"):
+            self.driver.set_poll_interval(self.update_interval.total_seconds())
         self._stale_handle: asyncio.TimerHandle | None = None
         self._settings_refresh_once = False
         self.reload_fingerprint = reload_option_fingerprint(entry.data, entry.options)

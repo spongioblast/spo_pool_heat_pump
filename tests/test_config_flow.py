@@ -9,6 +9,7 @@ import pytest
 
 ha = pytest.importorskip("homeassistant")
 
+import voluptuous as vol  # noqa: E402
 from homeassistant.const import CONF_HOST  # noqa: E402
 from homeassistant.data_entry_flow import AbortFlow  # noqa: E402
 
@@ -24,9 +25,19 @@ from spo_pool_heat_pump.const import (  # noqa: E402
 )
 
 
+def _hass() -> MagicMock:
+    hass = MagicMock()
+
+    async def run_job(func, *args):
+        return func(*args)
+
+    hass.async_add_executor_job = run_job
+    return hass
+
+
 def _flow() -> PoolHeatPumpConfigFlow:
     flow = PoolHeatPumpConfigFlow()
-    flow.hass = MagicMock()
+    flow.hass = _hass()
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = MagicMock()
     return flow
@@ -73,6 +84,28 @@ def test_cosma_create_puts_settings_in_options() -> None:
         assert CONF_NAME not in result["data"]
         assert CONF_PROFILE not in result["data"]
         flow.async_set_unique_id.assert_awaited_once_with("10.0.0.8:8899")
+
+    asyncio.run(run())
+
+
+def test_cosma_form_defaults_to_dtu_even_when_slave99_not_heard() -> None:
+    async def run() -> None:
+        flow = _flow()
+        flow._host = "10.0.0.8"
+        flow._port = 8899
+        flow._profile = "mida_cosma_pc1002"
+        flow._detect_extra = {"broadcast": {}, "fw_display": 713}
+        form = await flow.async_step_options_setup()
+        assert form["type"] == "form"
+        defaults = {key.schema: key.default() for key in form["data_schema"].schema if key.default is not vol.UNDEFINED}
+        assert defaults[CONF_WRITE_PATH] == "dtu_99"
+        note = form["description_placeholders"]["bus_note"]
+        assert "does not prove" in note
+        assert "slave 2" not in note.lower()
+
+        flow._detect_extra = {"broadcast": {}, "fw_display": 713, "slave99": True}
+        form = await flow.async_step_options_setup()
+        assert "Heard" in form["description_placeholders"]["bus_note"]
 
     asyncio.run(run())
 

@@ -24,9 +24,11 @@ def _register_dump_http(hass) -> None:
 
 async def async_setup(hass, config):
     from .frontend import async_register_card
+    from .profiles import async_warm_profiles
     from .services import async_register_services
     from .websocket import async_register_websocket
 
+    await async_warm_profiles(hass)
     await async_register_card(hass)
     await async_register_services(hass)
     await async_register_websocket(hass)
@@ -41,10 +43,11 @@ async def async_setup_entry(hass, entry):
     from .const import CONF_PORT, CONF_PROFILE, PLATFORMS, migrate_entry_storage
     from .coordinator import PoolHeatPumpCoordinator
     from .frontend import async_register_card
-    from .profiles import load_profile, migrate_profile_fields
+    from .profiles import async_warm_profiles, load_profile, migrate_profile_fields
     from .transport.tcp import TcpRtuClient
     from .websocket import async_register_websocket
 
+    await async_warm_profiles(hass)
     await async_register_card(hass)
     await async_register_websocket(hass)
     _register_dump_http(hass)
@@ -54,7 +57,7 @@ async def async_setup_entry(hass, entry):
         hass.config_entries.async_update_entry(entry, data=data, options=options)
     client = TcpRtuClient(data[CONF_HOST], int(data[CONF_PORT]))
     profile_id = options.get(CONF_PROFILE, data.get(CONF_PROFILE))
-    profile = await hass.async_add_executor_job(load_profile, profile_id)
+    profile = load_profile(profile_id)  # served from the warm cache
     coordinator = PoolHeatPumpCoordinator(hass, entry, client, profile)
     try:
         await coordinator.async_start()

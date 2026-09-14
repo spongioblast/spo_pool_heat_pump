@@ -40,6 +40,9 @@ class HeatPumpState:
     extras: dict[str, Any] = field(default_factory=dict)
     values: dict[str, Any] = field(default_factory=dict)
     clock: str | None = None
+    # Register names written but not yet echoed back by the heat pump.
+    # Their values in this state are optimistic until confirmed or expired.
+    pending: list[str] = field(default_factory=list)
 
     @property
     def compressor_pct(self) -> int | None:

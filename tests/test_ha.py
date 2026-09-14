@@ -32,6 +32,11 @@ def test_config_flow_mocked_detect() -> None:
     async def run() -> None:
         flow = PoolHeatPumpConfigFlow()
         flow.hass = MagicMock()
+
+        async def run_job(func, *args):
+            return func(*args)
+
+        flow.hass.async_add_executor_job = run_job
         result = await flow.async_step_user(None)
         assert result["type"] == "form"
         assert result["step_id"] == "user"

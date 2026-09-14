@@ -1,12 +1,23 @@
-"""Profile loader — JSON is data, not code."""
+"""Profile loader — JSON is data, not code.
+
+Reading the JSON files is blocking I/O. Inside Home Assistant call
+``async_warm_profiles(hass)`` once (integration setup and flow entry points);
+after that ``load_profile`` / ``iter_profiles`` serve deep copies from the
+in-memory cache without touching the disk. Without a warm cache (tests,
+tools) they fall back to reading the files directly.
+"""
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any
 
 PROFILES_DIR = Path(__file__).resolve().parent
+
+# profile id -> fully resolved + validated profile. None until warmed.
+_CACHE: dict[str, dict[str, Any]] | None = None
 
 # Filename = {brand}_{product}_{family}. Old ids still load.
 PROFILE_ALIASES = {
@@ -71,19 +82,56 @@ def migrate_profile_fields(data: dict[str, Any], options: dict[str, Any] | None 
     return new_data, new_options, changed
 
 
-def load_profile(profile_id: str) -> dict[str, Any]:
-    profile_id = resolve_profile_id(profile_id)
-    path = PROFILES_DIR / f"{profile_id}.json"
-    if not path.exists() or not _is_profile_path(path):
-        raise ProfileError(f"unknown profile {profile_id}")
+def _read_profile(path: Path) -> dict[str, Any]:
+    """Blocking: read, resolve shared files, validate one profile."""
     data = json.loads(path.read_text(encoding="utf-8"))
     _resolve_service_menu(data)
     _resolve_faults(data)
     validate_profile(data)
     ident_id = data["identity"]["id"]
-    if ident_id != profile_id:
-        raise ProfileError(f"identity.id {ident_id} != file {profile_id}")
+    if ident_id != path.stem:
+        raise ProfileError(f"identity.id {ident_id} != file {path.stem}")
     return data
+
+
+def warm_profiles() -> dict[str, dict[str, Any]]:
+    """Blocking: read every profile once. Run in an executor inside HA."""
+    global _CACHE
+    cache: dict[str, dict[str, Any]] = {}
+    for path in sorted(PROFILES_DIR.glob("*.json")):
+        if _is_profile_path(path):
+            data = _read_profile(path)
+            cache[data["identity"]["id"]] = data
+    _CACHE = cache
+    return cache
+
+
+def profiles_warm() -> bool:
+    return _CACHE is not None
+
+
+def clear_profile_cache() -> None:
+    global _CACHE
+    _CACHE = None
+
+
+async def async_warm_profiles(hass: Any) -> None:
+    """Fill the cache off the event loop. Cheap no-op once warm."""
+    if _CACHE is None:
+        await hass.async_add_executor_job(warm_profiles)
+
+
+def load_profile(profile_id: str) -> dict[str, Any]:
+    profile_id = resolve_profile_id(profile_id)
+    if _CACHE is not None:
+        data = _CACHE.get(profile_id)
+        if data is None:
+            raise ProfileError(f"unknown profile {profile_id}")
+        return copy.deepcopy(data)
+    path = PROFILES_DIR / f"{profile_id}.json"
+    if not path.exists() or not _is_profile_path(path):
+        raise ProfileError(f"unknown profile {profile_id}")
+    return _read_profile(path)
 
 
 def _is_profile_path(path: Path) -> bool:
@@ -222,16 +270,9 @@ def choice_map() -> dict[str, str]:
 
 
 def iter_profiles() -> list[dict[str, Any]]:
-    out = []
-    for path in sorted(PROFILES_DIR.glob("*.json")):
-        if not _is_profile_path(path):
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        _resolve_service_menu(data)
-        _resolve_faults(data)
-        validate_profile(data)
-        out.append(data)
-    return out
+    if _CACHE is not None:
+        return [copy.deepcopy(p) for p in _CACHE.values()]
+    return [_read_profile(path) for path in sorted(PROFILES_DIR.glob("*.json")) if _is_profile_path(path)]
 
 
 def profiles_for_driver(driver: str) -> list[dict[str, Any]]:

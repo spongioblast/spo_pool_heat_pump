@@ -46,6 +46,31 @@ def test_detect_marks_slave99() -> None:
     assert extra.get("slave99") is True
 
 
+class LateClient(FakeClient):
+    """Broadcast first, DTU frame only after a delay — the real-bus ordering."""
+
+    async def start(self, on_frame) -> None:
+        self._on = on_frame
+        await on_frame(_broadcast(display=713, main=772))
+
+        async def late() -> None:
+            await asyncio.sleep(0.03)
+            await on_frame(encode_fc16(99, 1011, [1]))
+
+        self._task = asyncio.ensure_future(late())
+
+    async def stop(self) -> None:
+        await self._task
+
+
+def test_detect_keeps_listening_after_first_broadcast() -> None:
+    client = LateClient()
+    profile, extra = asyncio.run(detect_profile(client, timeout=0.1, probe_wait=0.01))
+    assert profile == "mida_cosma_pc1002"
+    assert extra.get("slave99") is True
+    assert client.sent == []
+
+
 def test_detect_cosmo_from_firmware() -> None:
     client = FakeClient(listen=[_broadcast(display=713, main=772)])
     profile, extra = asyncio.run(detect_profile(client, timeout=0.01, probe_wait=0.01))

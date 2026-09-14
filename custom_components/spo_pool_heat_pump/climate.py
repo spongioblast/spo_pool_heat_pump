@@ -123,6 +123,9 @@ class PoolHeatPumpClimate(PoolHeatPumpEntity, ClimateEntity):
         if cop is not None and source:
             attrs["cop"] = round(float(cop), 2)
             attrs["cop_source"] = source
+        if state.pending:
+            # Written but not yet echoed by the heat pump (optimistic values).
+            attrs["pending_writes"] = list(state.pending)
         return attrs
 
     @property

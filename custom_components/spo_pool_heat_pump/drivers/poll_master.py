@@ -17,9 +17,15 @@ from ..modbus_rtu import (
 from ..profiles import lookup_write_spec, profile_polls
 from .base import HeatPumpDriver, HeatPumpState
 from .decode import apply_map
+from .pending import DEFAULT_TTL_S, PendingWrites
 from .settings import SettingsCache
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def pending_ttl_for_interval(poll_interval_s: float) -> float:
+    """A write is confirmed by the next full poll cycle; allow two of them."""
+    return max(DEFAULT_TTL_S, 2.0 * float(poll_interval_s) + 4.0)
 
 
 class PollMasterDriver(HeatPumpDriver):
@@ -44,6 +50,20 @@ class PollMasterDriver(HeatPumpDriver):
         self._reply_event = asyncio.Event()
         self._reply_exception = False
         self._bus_lock = asyncio.Lock()
+        interval = float((profile.get("driver") or {}).get("poll_interval", 10))
+        self.pending = PendingWrites(profile, ttl_s=pending_ttl_for_interval(interval))
+
+    def set_poll_interval(self, seconds: float) -> None:
+        """Entry option overrides the profile default; keep the pending TTL in step."""
+        self.pending.ttl_s = pending_ttl_for_interval(seconds)
+
+    def _publish(self) -> HeatPumpState:
+        state = apply_map(self.profile, self._regs, self._blocks, self.settings.regs)
+        self.pending.overlay(state)
+        self.state = state
+        if self._on_state:
+            self._on_state(state)
+        return state
 
     async def async_start(self) -> None:
         return None
@@ -84,10 +104,7 @@ class PollMasterDriver(HeatPumpDriver):
                 self._regs[start + i] = val
         self._reply_event.set()
         if (idx + 1) % len(polls) == 0:
-            state = apply_map(self.profile, self._regs, self._blocks, self.settings.regs)
-            self.state = state
-            if self._on_state:
-                self._on_state(state)
+            self._publish()
         return None
 
     async def poll_once(self, wait_s: float = 0.8) -> None:
@@ -148,18 +165,24 @@ class PollMasterDriver(HeatPumpDriver):
                 except TimeoutError:
                     ok = False
             if self._regs or self._blocks:
-                state = apply_map(self.profile, self._regs, self._blocks, self.settings.regs)
-                self.state = state
-                if self._on_state:
-                    self._on_state(state)
+                self._publish()
             return ok
 
     async def write_register(self, name: str, value: int | float) -> None:
         spec = lookup_write_spec(self.profile, name)
         register, encoded = self.encoded_write(name, value)
-        await self._emit_write(spec, register, encoded)
-        for extra in self.extra_write_addrs(register):
-            await self._emit_write(spec, extra, encoded)
+        self.pending.mark(name, encoded)
+        try:
+            await self._emit_write(spec, register, encoded)
+            for extra in self.extra_write_addrs(register):
+                await self._emit_write(spec, extra, encoded)
+        except Exception:
+            self.pending.discard(name)
+            raise
+        finally:
+            if self._regs or self._blocks:
+                # Show the new value now; the next poll cycle confirms or reverts it.
+                self._publish()
 
     async def _emit_write(self, spec: dict[str, Any], register: int, encoded: int) -> None:
         slave = int(self.profile["driver"].get("poll_slave", 1))

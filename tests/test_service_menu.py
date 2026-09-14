@@ -119,9 +119,14 @@ def test_write_path_choices_follow_targets() -> None:
     assert list(hayward) == ["dtu_99", "slave2", "panel_1"]
 
 
-def test_suggested_write_path_no_dtu() -> None:
-    assert suggested_write_path("pc1002_bus", {}) == WRITE_PATH_SLAVE2
+def test_suggested_write_path_always_dtu() -> None:
+    # Silence on slave 99 during the listen window is not proof of no DTU;
+    # slave 2 impersonates the panel and adds a master, so it never wins by default.
+    assert suggested_write_path("pc1002_bus", {}) == "dtu_99"
     assert suggested_write_path("pc1002_bus", {"slave99": True}) == "dtu_99"
+    assert suggested_write_path("pc1002_bus", {"slave99": False}) == "dtu_99"
+    assert suggested_write_path("poll_master", {}) == "dtu_99"
+    assert WRITE_PATH_SLAVE2 != suggested_write_path("pc1002_bus", {})
 
 
 def test_service_menu_write_option_gate() -> None:

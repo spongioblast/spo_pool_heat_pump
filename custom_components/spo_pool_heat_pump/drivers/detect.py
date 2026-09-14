@@ -1,4 +1,8 @@
-"""Listen 5 s, then probe. Returns (profile_id, extra)."""
+"""Listen the full window, then probe if silent. Returns (profile_id, extra).
+
+``extra["slave99"]`` means DTU traffic was *heard* in the window. Its absence
+is not proof there is no module — the DTU only speaks in bursts.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +45,6 @@ async def detect_profile(
     probe_wait: float = 0.4,
 ) -> tuple[str, dict[str, Any]]:
     seen: dict[str, Any] = {}
-    got = asyncio.Event()
 
     async def on_frame(frame: bytes) -> None:
         parsed = parse_frame(frame)
@@ -53,7 +56,6 @@ async def detect_profile(
             seen["fw_display"] = regs.get(2089)
             seen["fw_main"] = regs.get(2084)
             seen["fw_mini"] = regs.get(2017)
-            got.set()
         if parsed.slave == 99:
             seen["slave99"] = True
         if parsed.kind == "reply":
@@ -64,10 +66,9 @@ async def detect_profile(
 
     await client.start(on_frame)
     try:
-        try:
-            await asyncio.wait_for(got.wait(), timeout)
-        except TimeoutError:
-            pass
+        # Listen for the whole window, not just until the first broadcast:
+        # slave 99 (DTU) traffic is bursty and would otherwise be missed.
+        await asyncio.sleep(timeout)
         if "broadcast" in seen:
             display, main, mini = seen.get("fw_display"), seen.get("fw_main"), seen.get("fw_mini")
             if mini and not display:

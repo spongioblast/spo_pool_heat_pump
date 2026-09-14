@@ -56,13 +56,13 @@ PLATFORMS = ["climate", "sensor", "binary_sensor", "switch", "number"]
 
 
 WRITE_PATH_LABELS = {
-    WRITE_PATH_DTU: "DTU slave 99 (when the WiFi module is present)",
-    WRITE_PATH_SLAVE2: "Slave 2 responder (no DTU / no WiFi module)",
+    WRITE_PATH_DTU: "DTU slave 99 (default — same frame as the factory app)",
+    WRITE_PATH_SLAVE2: "Slave 2 responder (only if there is no WiFi module and slave 99 writes do nothing)",
     WRITE_PATH_PANEL: "Panel address 1 (unproven)",
 }
 WRITE_PATH_LABELS_SHORT = {
     WRITE_PATH_DTU: "DTU slave 99",
-    WRITE_PATH_SLAVE2: "Slave 2 (no DTU / no WiFi module)",
+    WRITE_PATH_SLAVE2: "Slave 2 (no WiFi module)",
     WRITE_PATH_PANEL: "Panel address 1 (unproven)",
 }
 
@@ -74,10 +74,15 @@ def write_path_choices(profile: dict, *, short: bool = False) -> dict[str, str]:
 
 
 def suggested_write_path(driver_type: str, extra: dict) -> str:
-    if extra.get("slave99"):
-        return WRITE_PATH_DTU
-    if driver_type == "pc1002_bus":
-        return WRITE_PATH_SLAVE2
+    """Always DTU slave 99.
+
+    That is the frame the factory app sends and a silent no-op when no module
+    is present. Slave 2 impersonates the second panel and adds a master to the
+    bus, so it stays opt-in. Detection cannot prove a DTU is absent: slave 99
+    traffic is bursty (idle gaps of minutes in the real dumps), so `extra`
+    lacking ``slave99`` only means nothing was heard in the listen window.
+    """
+    del driver_type, extra
     return WRITE_PATH_DTU
 
 

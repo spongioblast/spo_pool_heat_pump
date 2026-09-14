@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "SPO Pool Heat Pump",
-        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full checklist: [/spo_pool_heat_pump/setup.html](/spo_pool_heat_pump/setup.html) (available after a restart; it links out to the wiring diagram).\n\n1. Parallel tap +, A, B, and G on the heat-pump bus (same four pins as the factory WiFi). If the DR164 has a separate DC− screw, join it to G. Swap A/B if CRC fails.\n2. Phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA Wi-Fi on the home LAN; reserve the DHCP lease.\n3. Serial Port: baud 9600, data 8, parity NONE, stop 1. Packaging Interval 20 ms, Length 1400 (factory baud is often 115200).\n4. Net settings → Socket A: protocol TCP Server, local port 8899. Leave Modbus, MQTT, HTTP, PUSR cloud, heartbeat, and Event off. Save and restart.\n5. Enter that reserved IP below. One Home Assistant client only.\n\nSerial USB and Modbus-TCP gateways are not available in v1.",
+        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full walkthrough (wiring photo, Wi-Fi, work mode): [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)\n\n1. **Wire:** parallel tap +, A, B, and G on the same four pins as the factory WiFi. A separate DC− screw joins G. Swap A/B if CRC fails.\n2. **LAN:** phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA to the home Wi-Fi; reserve the DHCP lease.\n3. **Work mode:** Serial Port **9600 8N1**, Packaging Interval **20 ms**, Length **1400**. Socket A **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.\n\nEnter that reserved IP below. One Home Assistant client only. Serial USB and Modbus-TCP gateways are not available in v1.",
         "data": {
           "host": "DR164 host (reserved LAN IP)",
           "port": "Port (8899)"
@@ -25,7 +25,7 @@
       },
       "options_setup": {
         "title": "Options",
-        "description": "{bus_note} Write path: DTU slave 99 if the factory WiFi module is on the bus; slave 2 if it is not. Service settings (H/F/D special-menu parameters) can damage the unit. Leave them off unless you know the OEM values.",
+        "description": "{bus_note} Write path defaults to DTU slave 99 — the same frame the factory app sends, and a harmless no-op if no module is present. Switch to slave 2 only if you have no WiFi module and slave 99 writes do nothing. Service settings (H/F/D special-menu parameters) can damage the unit. Leave them off unless you know the OEM values.",
         "data": {
           "name": "Name",
           "write_path": "Write path",
@@ -35,7 +35,7 @@
         },
         "data_description": {
           "name": "How this heat pump appears in Home Assistant.",
-          "write_path": "DTU slave 99 when the factory WiFi module is on the bus. Slave 2 if it is not. Do not unplug a live DTU while the path is still slave 99.",
+          "write_path": "Keep DTU slave 99 unless you have no WiFi module and writes do nothing; slave 2 answers as the second panel and adds a master to the bus. Do not unplug a live DTU while the path is still slave 99.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1."
@@ -55,7 +55,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot reach the DR164. Confirm the reserved LAN IP, Socket A is TCP Server on port 8899, the pump is powered, and try swapping RS-485 A/B. See /spo_pool_heat_pump/setup.html."
+      "cannot_connect": "Cannot reach the DR164. Confirm the reserved LAN IP, Socket A is TCP Server on port 8899, the pump is powered, and try swapping RS-485 A/B. See https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md"
     },
     "abort": {
       "already_configured": "This heat pump is already configured.",
@@ -81,7 +81,7 @@
     "step": {
       "init": {
         "title": "SPO Pool Heat Pump options",
-        "description": "Write path: DTU slave 99 when the factory WiFi module is present, slave 2 when it is not. Do not unplug a live DTU while the path is still slave 99. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: /spo_pool_heat_pump/setup.html",
+        "description": "Write path: keep DTU slave 99 (same frame as the factory app). Slave 2 only if there is no WiFi module and slave 99 writes do nothing. Do not unplug a live DTU while the path is still slave 99. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)",
         "data": {
           "profile": "Profile",
           "write_path": "Write path",
@@ -94,7 +94,7 @@
         "data_description": {
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "profile": "Same-board badges are listed on each option. Oasis / Warmpool → Hayward. Azuro / Mountfield → MIDA Cosma. SuperMini → PHNIX Mini. Slave 50 → CN13. IPS Pro / InverX → coil map. Not listed? Dump only.",
-          "write_path": "DTU slave 99 when the factory WiFi module is on the bus. Slave 2 if it is not. Do not unplug a live DTU while the path is still slave 99.",
+          "write_path": "Keep DTU slave 99 unless you have no WiFi module and writes do nothing; slave 2 answers as the second panel and adds a master to the bus. Do not unplug a live DTU while the path is still slave 99.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1.",
           "manual_cop_flow": "When on, COP is calculated from this flow, inlet/outlet ΔT, and electrical power. The controller COP register is ignored.",

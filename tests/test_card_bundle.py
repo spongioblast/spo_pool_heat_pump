@@ -78,13 +78,14 @@ def test_brand_icon() -> None:
 
 
 def test_setup_guide_and_wiring_diagram() -> None:
-    html = (WWW / "setup.html").read_text(encoding="utf-8")
-    assert "USR-DR164" in html
-    assert "10.10.100.254" in html
-    assert "8899" in html
-    assert "Modbus" in html
-    assert "docs/images/dr164-parallel-tap.png" in html
-    assert "<img" not in html
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    assert "USR-DR164" in text
+    assert "10.10.100.254" in text
+    assert "8899" in text
+    assert "Modbus" in text
+    assert "docs/images/dr164-parallel-tap.png" in text
+    assert not (WWW / "setup.html").exists()
     assert DOCS_WIRING.exists()
     assert DOCS_WIRING.stat().st_size > 100
     assert DOCS_WIRING.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"

@@ -80,6 +80,10 @@
 .w3 .ib.pw.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .w3 .ib.quiet.on { color: #2bb5a0; border-color: color-mix(in srgb, #2bb5a0 45%, transparent); background: color-mix(in srgb, #2bb5a0 8%, transparent); }
 .w3 .target .ib { width: 32px; height: 32px; }
+/* Written, not yet echoed by the heat pump: keep the new value visible, mark it as in flight. */
+.w3 .pending { animation: inflight 1.1s ease-in-out infinite; }
+@keyframes inflight { 50% { opacity: .45; } }
+.card[data-flow="false"] .w3 .pending { animation: none; opacity: .7; }
 .w3 .seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--divider-color); }
 .w3 .seg button {
   padding: 6px 14px;

@@ -11,10 +11,14 @@ from ..modbus_rtu import encode_fc03, encode_fc16, parse_frame
 from ..profiles import decode_panel_clock, profile_registers
 from .base import HeatPumpDriver, HeatPumpState
 from .decode import apply_map
+from .pending import DEFAULT_TTL_S as PENDING_TTL_S
+from .pending import PendingWrites
 from .settings import SettingsCache
 from .slave2 import SettingsUnseeded, Slave2Responder
 
 _LOGGER = logging.getLogger(__name__)
+
+__all__ = ["PENDING_TTL_S", "Pc1002BusDriver"]
 
 
 class Pc1002BusDriver(HeatPumpDriver):
@@ -42,6 +46,7 @@ class Pc1002BusDriver(HeatPumpDriver):
         self._last_3011: int | None = None
         self._pending_flag_pages: list[int] | str | None = None
         self._optimistic_mode: str | None = None
+        self.pending = PendingWrites(profile)
 
     async def async_start(self) -> None:
         return None
@@ -90,6 +95,7 @@ class Pc1002BusDriver(HeatPumpDriver):
             state.clock = decode_panel_clock(self.settings.page_3001 or self.slave2.block_3001)
         if self._optimistic_mode is not None and state.mode == self._optimistic_mode:
             self._optimistic_mode = None
+        self.pending.overlay(state)
         self.state = state
         if self._on_state:
             self._on_state(state)
@@ -174,9 +180,16 @@ class Pc1002BusDriver(HeatPumpDriver):
 
     async def write_register(self, name: str, value: int | float) -> None:
         register, encoded = self.encoded_write(name, value)
-        await self._emit_write(register, encoded)
-        for extra in self.extra_write_addrs(register):
-            await self._emit_write(extra, encoded)
+        self.pending.mark(name, encoded)
+        try:
+            await self._emit_write(register, encoded)
+            for extra in self.extra_write_addrs(register):
+                await self._emit_write(extra, encoded)
+        except Exception:
+            # Nothing reached the bus; do not show a value the pump never got.
+            self.pending.discard(name)
+            self._republish_if_seeded()
+            raise
 
     async def _emit_write(self, register: int, encoded: int) -> None:
         if self.write_path == WRITE_PATH_SLAVE2:

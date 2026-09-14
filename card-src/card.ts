@@ -245,6 +245,7 @@ class PoolHeatPumpCard extends LitElement {
         return Number.isFinite(raw) && raw !== 0 ? raw : null;
       })(),
       dumpOnly: climate.attributes.dump_only === true || status === "Dump only",
+      pending: Array.isArray(climate.attributes.pending_writes) ? (climate.attributes.pending_writes as string[]) : [],
       caps,
     };
   }
@@ -321,6 +322,8 @@ class PoolHeatPumpCard extends LitElement {
     if (s.caps.fan) facts.push(["Fan", s.fanRpm == null ? "–" : String(s.fanRpm), "rpm"]);
     const modes = ["heat", ...(s.caps.auto ? ["auto"] : []), ...(s.caps.cool ? ["cool"] : [])];
     const showTune = settingsEnabled(this._config) && isAdmin(this.hass);
+    // Optimistic values pulse until the heat pump echoes them back (or the write expires and reverts).
+    const pend = (...keys: string[]) => (keys.some((k) => s.pending.includes(k)) ? "pending" : "");
     return html`
       <ha-card class="card ${schematic}"
         data-available=${s.available}
@@ -344,19 +347,19 @@ class PoolHeatPumpCard extends LitElement {
               : html`<div class="target">
               <span class="eyebrow">Target</span>
               <button class="ib" title="Lower target" @click=${() => this.nudge(-0.5)}>${MINUS}</button>
-              <span class="val"><span class="num">${f1(s.setpoint)}</span><span class="unit">°</span></span>
+              <span class="val ${this._targetLocal != null ? "pending" : pend("setpoint")}"><span class="num">${f1(s.setpoint)}</span><span class="unit">°</span></span>
               <button class="ib" title="Raise target" @click=${() => this.nudge(0.5)}>${PLUS}</button>
             </div>`}
           </div>
           ${drawing}
           <div class="facts">${facts.map(([k, v, u]) => html`<div class="fact"><div class="v">${v}<small>${u}</small></div><span class="eyebrow">${k}</span></div>`)}</div>
           <div class="modes">
-            ${s.dumpOnly ? "" : html`<div class="seg">${modes.map((m) => html`<button class=${s.power && s.mode === m ? "on" : ""} @click=${() => this.setMode(m)}>${m === "heat" ? "Heat" : m === "cool" ? "Cool" : "Auto"}</button>`)}</div>`}
+            ${s.dumpOnly ? "" : html`<div class="seg">${modes.map((m) => html`<button class="${s.power && s.mode === m ? "on" : ""} ${s.mode === m ? pend("mode", "power") : ""}" @click=${() => this.setMode(m)}>${m === "heat" ? "Heat" : m === "cool" ? "Cool" : "Auto"}</button>`)}</div>`}
             <span class="sp"></span>
             ${showTune ? html`<button class="ib params-open" title="Heat pump settings" @click=${() => this.openSettings()}>${TUNE}</button>` : ""}
-            ${s.dumpOnly || !s.caps.silent ? "" : html`<button class="ib quiet ${s.silent ? "on" : ""}" title="Quiet mode"
+            ${s.dumpOnly || !s.caps.silent ? "" : html`<button class="ib quiet ${s.silent ? "on" : ""} ${pend("silent")}" title="Quiet mode"
               @click=${() => this.call("climate", "set_preset_mode", { preset_mode: s.silent ? "none" : "silent" })}>${FEATHER}</button>`}
-            ${s.dumpOnly ? "" : html`<button class="ib pw ${s.power ? "on" : ""}" title="Power"
+            ${s.dumpOnly ? "" : html`<button class="ib pw ${s.power ? "on" : ""} ${pend("power")}" title="Power"
               @click=${() => this.call("climate", s.power ? "turn_off" : "turn_on", {})}>${PW}</button>`}
           </div>
           ${s.available ? "" : html`<div class="stale"><span><i></i>No data from heat pump for 8 s</span></div>`}

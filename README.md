@@ -6,8 +6,6 @@ Requires Home Assistant 2026.6.0 or later.
 
 The integration creates a Device with native `climate`, sensors, switches and timer numbers. Service-menu values are not Home Assistant entities — they live in the card Settings dialog (and an optional standalone settings card). A bundled Lovelace card draws the water path (Circuit or Section — pick one in the card editor).
 
-After HACS install and a restart, this Home Assistant also serves the same walkthrough at `/spo_pool_heat_pump/setup.html`.
-
 ## What it looks like
 
 Circuit is the default schematic. Section is the cutaway. Both follow the Home Assistant theme (light / dark) and shrink the facts row on a narrow column.
@@ -43,7 +41,7 @@ This is a **HACS custom integration**, not a Home Assistant Core add-on. It is n
 
 The Lovelace card is included. Do not add a Lovelace resource for it.
 
-Then wire the DR164 (next three sections) and **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = reserved DR164 IP, port `8899`. After a restart this Home Assistant also serves the walkthrough at `/spo_pool_heat_pump/setup.html`.
+Then wire the DR164 (next three sections) and **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = reserved DR164 IP, port `8899`.
 
 ### Manual install
 
@@ -68,17 +66,17 @@ The factory WiFi / DTU port already carries all four pins the DR164 needs — **
 
 Swap A and B if every frame fails CRC. The DR164 accepts 5–36 V, so the pump's 12 V is in range.
 
-Leave a factory WiFi / DTU module plugged in if you still want writes on slave 99.
+Leave a factory WiFi / DTU module plugged in if you still want writes on slave 99. Unplugging a live DTU while the write path is still **DTU slave 99** drops commands on the floor.
 
 ## 2. Add the DR164 to the network
 
-1. Phone joins the AP `USR-DR164-xxxx`.
-2. Open `http://10.10.100.254` → `admin` / `admin`. Change that password.
+1. Power the DR164. Phone joins the open AP `USR-DR164-xxxx`.
+2. Open `http://10.10.100.254` → `admin` / `admin`. Change that password before it sits on the home LAN.
 3. Set **STA** Wi-Fi to the home SSID. Apply and wait for the reboot onto the LAN.
 4. Reserve the DHCP lease (or set a static IP) on the same subnet as Home Assistant.
-5. Browse to that reserved IP to finish work-mode setup.
+5. Leave the phone AP. Browse to that reserved IP to finish work-mode setup.
 
-One Home Assistant TCP client only.
+Home Assistant and the DR164 must be on the same LAN. One TCP client only — do not point a second app at port 8899 at the same time.
 
 ## 3. Set the work mode, then add it in Home Assistant
 
@@ -87,7 +85,7 @@ On the DR164 web UI (save and restart after these pages):
 1. **Serial Port:** **9600 8N1**. Packaging Interval **20 ms**, Length **1400**.
 2. **Net settings → Socket A:** **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.
 
-Then Add integration → SPO Pool Heat Pump → that host and port. Detection listens ~5 s for the 2001×90 broadcast. Write path defaults to **DTU slave 99** when slave 99 is on the bus, otherwise **slave 2**. If the bus does not match a shipped map, pick **Unknown heat pump — dump only** and capture a bus dump from the card Settings. Leave **Allow changing service settings** off (see below).
+Then **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = the reserved DR164 IP, port `8899`. Detection listens ~5 s and pre-selects a profile. Keep it unless the name on the case is a different family. Compatible badges are on each option (Oasis / Warmpool → Hayward; Azuro / Mountfield → MIDA Cosma; SuperMini → PHNIX Mini; slave 50 → Fairland CN13; IPS Pro / InverX → coil map). AquaTemp on the phone does not prove this wire map. Write path defaults to **DTU slave 99** — the same frame the factory app sends, and a harmless no-op if no module is present. Detection reports whether it *heard* slave 99 in the listen window; silence does not prove the module is absent (it only talks in bursts). Pick **slave 2** only if you have no WiFi module and slave 99 writes do nothing. If the bus does not match a shipped map, pick **Unknown heat pump — dump only** and capture a bus dump from the card Settings. Fairland CN13 / IPS Pro: confirm **Modbus slave (H37)** (CN13 default 50, IPS Pro usually 1). Leave **Allow changing service settings** off (see below).
 
 Serial USB and Modbus-TCP gateways are not available in v1.
 
@@ -108,11 +106,11 @@ The sliders icon (next to Quiet and Power) opens Settings. That dialog has every
 
 COP is drawn under the unit only when it is non-zero: the controller register (2040) if the board publishes one, or a calculated value from the manual flow, ΔT, and electrical power. ΔT stays on the left.
 
-The card is registered automatically via extra JS. After install, **restart Home Assistant and hard-refresh the dashboard** (Ctrl+F5 / Cmd+Shift+R). Extra modules are injected only into a freshly rendered `index.html`. Do not add a Lovelace resource for the card — a second load duplicates it in Add to dashboard and can leave the view on Configuration error. The panel clock (3015–3017) is read-only — no DTU clock write has been observed.
+The card is registered automatically via extra JS. After install, **restart Home Assistant, then reload the browser tab** (F5, or open a new tab). Extra modules are part of `index.html`, so a tab that was open before the restart keeps running without the card until the page itself is reloaded — unlike HACS resource cards, which the dashboard fetches on first open. Do not add a Lovelace resource for the card — a second load duplicates it in Add to dashboard and can leave the view on Configuration error. The panel clock (3015–3017) is read-only — no DTU clock write has been observed.
 
 If **Add to dashboard** search for “SPO Pool Heat Pump” shows only Manual YAML:
 
-1. Hard-refresh the dashboard after the restart.
+1. Reload the browser tab after the restart (a tab open before the restart never ran the card module).
 2. Open `/spo_pool_heat_pump/spo-pool-heat-pump-card.js` — it must be JavaScript, HTTP 200.
 3. View source of `/` and confirm it contains `import("/spo_pool_heat_pump/spo-pool-heat-pump-card.js`.
 4. Do not add a Dashboard resource.
@@ -146,7 +144,9 @@ views:
 
 ## Writes
 
-Default writes go to **DTU slave 99** when the factory WiFi module is present. Pumps with no DTU use **slave 2** (second-panel responder) after the 1001/1091 pages are seeded (`spo_pool_heat_pump.refresh_service_menu`). PHNIX Mini lists both paths. Writing to the panel at address 1 is unproven.
+Default writes go to **DTU slave 99**: one FC16 frame, identical to what the factory WiFi module / AquaTemp app sends. Without a module it does nothing and disturbs nothing. **Slave 2** (second-panel responder) is opt-in for pumps with no DTU: Home Assistant first reads the 1001/1091 pages as a second master (`spo_pool_heat_pump.refresh_service_menu`), then answers the display's slave 2 polls with the changed page. Use it only when slave 99 writes are confirmed to do nothing. PHNIX Mini lists both paths. Writing to the panel at address 1 is unproven.
+
+**Responsiveness.** The heat pump echoes a write in its next broadcast — in recorded dumps that took a median 3.1 s and up to ~4 s (broadcast every 1.74 s). So Home Assistant applies writes optimistically: the entity shows the new value immediately and lists it in the climate attribute `pending_writes`; the card pulses the affected control while it is in flight. When the broadcast confirms the value the pulse stops. If the pump has not echoed it after 8 s the value reverts to what the device reports and a warning is logged (`write silent=True not confirmed …`) — a rejected write is never left on screen. This applies to the card, Core tiles, the phone app and automations alike. Polled units (Fairland) work the same way; there the value is confirmed by the next poll cycle and the timeout scales with the poll interval (2 × interval + 4 s).
 
 Fairland CN13 / IPS Pro are polled. Set **Modbus slave (H37)** if the unit is not on the profile default (CN13 50, IPS Pro 1).
 
@@ -313,10 +313,10 @@ Files in `config/spo_pool_heat_pump_dumps/` are not deleted. Remove those captur
 | Already configured                     | This DR164 (or this serial) already has an entry. Open that one, or **Reconfigure** its host/port                       |
 | Entities unavailable                   | One HA client only on port 8899. If the IP changed, **Reconfigure**. Cosma needs the 2001 broadcast; Fairland needs H37 |
 | Dump folder full                       | `config/spo_pool_heat_pump_dumps/` is over ~200 MB. Delete old `.log` / `.bin` from the card dump list                  |
-| Writes do nothing                      | Write path: DTU slave 99 only with the WiFi module present. No DTU → slave 2. Dump-only never writes                    |
+| Writes do nothing                      | DTU slave 99 needs the WiFi module plugged in. No module → switch the write path to slave 2. Dump-only never writes      |
 | Service-menu write refused             | Enable **Allow changing service settings** under Configure                                                              |
 | Core Modbus / DR164 “Modbus gateway”   | Do not add those. See [Why not Home Assistant’s Modbus integration?](#why-not-home-assistants-modbus-integration)       |
-| Add to dashboard only shows Manual YAML | Hard-refresh after restart. Confirm the card JS URL is 200. Do not add a Lovelace resource. YAML add still works.      |
+| Add to dashboard only shows Manual YAML | Reload the tab after the restart. Confirm the card JS URL is 200. Do not add a Lovelace resource. YAML add still works. |
 
 
 

@@ -30,7 +30,7 @@ from .const import (
     write_path_choices,
 )
 from .drivers.detect import DetectFailed, detect_profile, detect_reason
-from .profiles import choice_map, resolve_profile_id
+from .profiles import async_warm_profiles, choice_map, resolve_profile_id
 from .transport.tcp import TcpRtuClient
 
 
@@ -50,6 +50,8 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        # The flow can run before async_setup on a fresh install; profile JSON must not be read on the loop.
+        await async_warm_profiles(self.hass)
         if user_input:
             self._host = user_input[CONF_HOST]
             self._port = int(user_input[CONF_PORT])
@@ -149,8 +151,13 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
             schema[vol.Required(CONF_SERVICE_MENU_WRITES, default=False)] = bool
         if driver == "listen_only":
             note = "Dump-only does not write or decode. Open the card Settings → Bus dump, then switch to a real profile."
-        elif not self._detect_extra.get("slave99") and driver == "pc1002_bus":
-            note = "No AquaTemp DTU on the bus — default write path is slave 2."
+        elif driver == "pc1002_bus" and self._detect_extra.get("slave99"):
+            note = "Heard the WiFi module (slave 99) on the bus."
+        elif driver == "pc1002_bus":
+            note = (
+                "No slave 99 traffic heard while listening. That does not prove there is no WiFi module "
+                "— it only talks in bursts."
+            )
         else:
             note = ""
         return self.async_show_form(
@@ -199,6 +206,7 @@ class PoolHeatPumpOptionsFlow(OptionsFlow):
         from .profiles import load_profile
 
         entry = self.config_entry
+        await async_warm_profiles(self.hass)
         if user_input:
             return self.async_create_entry(title="", data=merge_entry_options(entry.data, entry.options, user_input))
         current = resolve_profile_id(entry.options.get(CONF_PROFILE, entry.data.get(CONF_PROFILE)))

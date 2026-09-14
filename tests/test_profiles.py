@@ -88,6 +88,44 @@ def test_schema_rejects_pc1002_without_broadcast() -> None:
         jsonschema.validate(raw, schema)
 
 
+def test_profile_cache_serves_copies_without_disk() -> None:
+    import asyncio
+
+    from spo_pool_heat_pump import profiles as mod
+
+    mod.clear_profile_cache()
+    assert not mod.profiles_warm()
+    cold = load_profile("mida_cosma_pc1002")
+
+    calls: list = []
+
+    class FakeHass:
+        async def async_add_executor_job(self, func, *args):
+            calls.append(func.__name__)
+            return func(*args)
+
+    try:
+        asyncio.run(mod.async_warm_profiles(FakeHass()))
+        assert calls == ["warm_profiles"]
+        assert mod.profiles_warm()
+        asyncio.run(mod.async_warm_profiles(FakeHass()))
+        assert calls == ["warm_profiles"], "second warm-up is a no-op"
+
+        # Same content as the disk read, but the cache must not be reachable through the copy.
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(Path, "read_text", lambda *a, **k: pytest.fail("cache hit disk"))
+            warm = load_profile("mida_cosma_pc1002")
+            listed = iter_profiles()
+        assert warm == cold
+        assert {p["identity"]["id"] for p in listed} >= {"mida_cosma_pc1002", "fairland_pc1004_cn13"}
+        warm["identity"]["brand"] = "mutated"
+        assert load_profile("mida_cosma_pc1002")["identity"]["brand"] != "mutated"
+        with pytest.raises(ProfileError):
+            load_profile("does_not_exist")
+    finally:
+        mod.clear_profile_cache()
+
+
 def test_all_profiles_validate() -> None:
     jsonschema = pytest.importorskip("jsonschema")
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))

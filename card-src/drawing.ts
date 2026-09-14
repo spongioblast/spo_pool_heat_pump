@@ -21,6 +21,8 @@ export type CardState = {
   status: string;
   cop: number | null;
   dumpOnly: boolean;
+  /** Register names written but not yet echoed by the heat pump (optimistic). */
+  pending: string[];
   caps: { cool: boolean; auto: boolean; silent: boolean; power: boolean; energy: boolean; compressor: boolean; ambient: boolean; fan: boolean };
 };
 

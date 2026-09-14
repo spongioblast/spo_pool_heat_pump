@@ -194,7 +194,9 @@ def test_set_setpoint_after_mode_cool_writes_cool_extra() -> None:
     driver.settings.put(1136, 310)
     driver._publish(driver.state.raw)
     asyncio.run(driver.set_mode("cool"))
-    assert driver.state.mode == "heat"
+    # Optimistic: the state shows "cool" immediately, flagged pending until the broadcast echoes it.
+    assert driver.state.mode == "cool"
+    assert "mode" in driver.state.pending
     assert driver._optimistic_mode == "cool"
     sent.clear()
     asyncio.run(driver.set_setpoint(26.0))
