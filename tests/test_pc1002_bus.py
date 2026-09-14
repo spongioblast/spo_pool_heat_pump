@@ -202,7 +202,7 @@ def test_set_setpoint_writes_the_per_mode_word_only() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "slave2")
     driver.handle_frame(first_broadcast())  # heat
     asyncio.run(driver.set_setpoint(30.5))
     frames = [parse_frame(f) for f in sent]
@@ -217,7 +217,8 @@ def test_set_setpoint_writes_the_per_mode_word_only() -> None:
     assert "setpoint" not in driver.state.pending
 
 
-def test_set_setpoint_after_mode_cool_writes_cool_word() -> None:
+def test_dtu_path_writes_the_working_setpoint_1013_to_slave_99() -> None:
+    """Live 2026-09-14 16:44: the WiFi module acked 1012 but ignored 1136."""
     import asyncio
 
     sent: list[bytes] = []
@@ -226,6 +227,23 @@ def test_set_setpoint_after_mode_cool_writes_cool_word() -> None:
         sent.append(frame)
 
     driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
+    driver.handle_frame(first_broadcast())  # heat
+    asyncio.run(driver.set_setpoint(30.5))
+    frames = [parse_frame(f) for f in sent]
+    assert [(f.slave, f.start, list(f.values)) for f in frames] == [(99, 1013, [305])]
+    assert driver.state.setpoint == 30.5
+    assert "setpoint" in driver.state.pending
+
+
+def test_set_setpoint_after_mode_cool_writes_cool_word() -> None:
+    import asyncio
+
+    sent: list[bytes] = []
+
+    async def send(frame: bytes) -> None:
+        sent.append(frame)
+
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "slave2")
     driver.handle_frame(first_broadcast())
     asyncio.run(driver.set_mode("cool"))
     # Optimistic: the state shows "cool" immediately, flagged pending until the board echoes it.

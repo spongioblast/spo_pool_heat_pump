@@ -253,6 +253,12 @@ class Pc1002BusDriver(HeatPumpDriver):
         if which is not None:
             await self.write_register(which, celsius)
             return
+        if self.write_path == WRITE_PATH_DTU:
+            # The factory WiFi module takes the app's words: it acked 1012 (and the
+            # board adopted the mode 1.5 s later) but ignored 1136 on the live bus
+            # (2026-09-14 16:44). Send the working setpoint 1013 like the app does.
+            await self.write_register("setpoint", celsius)
+            return
         mapping = profile_registers(self.profile)
         per_mode = {
             "heat": "setpoint_heat",
