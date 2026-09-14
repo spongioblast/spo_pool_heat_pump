@@ -144,9 +144,12 @@ def test_write_raises_exact_display_flag_and_survives_old_page_push() -> None:
     poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
     assert poll.values[10] == FLAG_READ_1001 == 0x0004
 
-    # Board reads the page back: our value is in it, flag drops.
+    # Board reads the page back: our value is in it. The flag stays up until the
+    # board's 3001 sync (0.85 s later on the live bus) reports 0 — sending is not receiving.
     page = parse_frame(driver.handle_frame(encode_fc03(2, 1001, 90)))
     assert page is not None and page.values[1076 - 1001] == 1
+    assert driver.slave2.flags_3011 == FLAG_READ_1001
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
     assert driver.slave2.flags_3011 == 0
 
     # Board is still pushing the OLD page this cycle — must not wipe the queued value.
@@ -174,7 +177,78 @@ def test_page_1091_writes_use_0x0020_and_setpoint_heat_0x0040() -> None:
     page = parse_frame(driver.handle_frame(encode_fc03(2, 1091, 90)))
     assert page.values[1150 - 1091] == 7
     assert page.values[1136 - 1091] == 300
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
     assert driver.slave2.flags_3011 == 0
+
+
+def test_lost_page_reply_keeps_the_flag_up_for_a_retry() -> None:
+    """Live capture 2026-09-14 11:51: the board's read came late, its 3001 sync followed
+    23 ms later echoing 0x0004 (it never got our page) and it fell back to the display.
+    The flag must stay raised so the next poll makes it read the page again."""
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    asyncio.run(driver.set_mode("auto"))
+    driver.handle_frame(encode_fc03(2, 3001, 30))
+    driver.handle_frame(encode_fc03(2, 1001, 90))  # our reply is lost on the way
+    driver.handle_frame(
+        encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001])
+    )  # board echoes it
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == FLAG_READ_1001, "still asking to be read"
+    page = parse_frame(driver.handle_frame(encode_fc03(2, 1001, 90)))
+    assert page.values[1012 - 1001] == 2
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
+    assert driver.slave2.flags_3011 == 0
+
+
+def test_write_queued_between_read_and_sync_is_not_acked_away() -> None:
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 1001, 90))  # board reads page with 1076 only
+    driver.slave2.queue_write(1012, 2)  # second write lands before the sync
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))  # ack for the first read
+    assert driver.slave2.flags_3011 == FLAG_READ_1001, "1012 has not been read yet"
+
+
+def test_expired_or_confirmed_overlay_drops_its_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    now = [100.0]
+    monkeypatch.setattr(slave2_mod.time, "monotonic", lambda: now[0])
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    # Sync never parsed (DR164 split it); the flag would otherwise stay up forever.
+    now[0] += OVERLAY_TTL_S + 1
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
+    # Confirmation by page push also drops it.
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    driver.handle_frame(encode_fc16(2, 1001, page_1001(r1076=1)))
+    assert driver.slave2.flags_3011 == 0
+
+
+def test_second_panel_never_reads_the_display_on_its_own() -> None:
+    """The board's 3001 sync to us echoes our flags; it must not look like a display
+    change and trigger a FC03 from HA (a second master on the board's bus)."""
+    driver, sent = make_driver()
+    board_cycle(driver, page_1001())
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001]))
+    assert asyncio.run(driver.after_frame()) is None
+    # Even a real display flag change is not re-read on this path: the board pushes pages.
+    driver.handle_frame(encode_fc03(1, 3001, 30))
+    driver.handle_frame(
+        encode_fc03_reply(1, SERIAL + [FLAG_READ_1001, 0, 0xF500] + [0] * 17)
+    )
+    driver.handle_frame(encode_fc03(1, 3001, 30))
+    driver.handle_frame(encode_fc03_reply(1, SERIAL + [0, 0, 0xF500] + [0] * 17))
+    assert asyncio.run(driver.after_frame()) is None
+    assert sent == []
 
 
 def test_rejected_write_expires_from_our_page(monkeypatch: pytest.MonkeyPatch) -> None:

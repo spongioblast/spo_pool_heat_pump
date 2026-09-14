@@ -64,7 +64,12 @@ class Pc1002BusDriver(HeatPumpDriver):
         if parsed is None:
             return self.maybe_slave2_reply(frame)
         self.slave2.observe(parsed)
-        settings_changed = self.settings.absorb_frame(parsed)
+        if parsed.function == 16 and parsed.slave == 2 and parsed.start == 3001:
+            # The board's 3001×11 sync to us echoes *our* flags; it is not display
+            # state and must never look like a display flag change.
+            settings_changed = False
+        else:
+            settings_changed = self.settings.absorb_frame(parsed)
         if parsed.function == 16 and parsed.start in (1001, 1091, 1181) and parsed.values:
             self.slave2.seed_page(int(parsed.start), list(parsed.values))
         matched = self.settings.take_page()
@@ -84,7 +89,11 @@ class Pc1002BusDriver(HeatPumpDriver):
             self.slave2.cache_from_broadcast(regs)
             self._publish(regs)
             return self.maybe_slave2_reply(frame)
-        if settings_changed:
+        if settings_changed and self.write_path != WRITE_PATH_SLAVE2:
+            # As the second panel we are pushed every page the board changes, so
+            # there is nothing to read back — and a FC03 from us would make Home
+            # Assistant a second master on the board's bus (the live capture
+            # 2026-09-14 11:51 shows one going out 23 ms after a failed page read).
             self._maybe_queue_flag_reread()
         if settings_changed and self.state.available:
             self._publish(self.state.raw)
