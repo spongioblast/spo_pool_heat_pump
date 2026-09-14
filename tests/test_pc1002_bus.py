@@ -202,7 +202,7 @@ def test_set_setpoint_writes_the_per_mode_word_only() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "slave2")
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "panel_1")
     driver.handle_frame(first_broadcast())  # heat
     asyncio.run(driver.set_setpoint(30.5))
     frames = [parse_frame(f) for f in sent]
@@ -243,7 +243,7 @@ def test_set_setpoint_after_mode_cool_writes_cool_word() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "slave2")
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "panel_1")
     driver.handle_frame(first_broadcast())
     asyncio.run(driver.set_mode("cool"))
     # Optimistic: the state shows "cool" immediately, flagged pending until the board echoes it.
