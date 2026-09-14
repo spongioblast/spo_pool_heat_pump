@@ -51,9 +51,12 @@ REG_3011 = 3011
 # or this long has passed (rejected / never read) — then the board's value wins.
 OVERLAY_TTL_S = 20.0
 
-# How often one write may ask to be read again after the board's sync echoed
-# our bit (its read of our page did not get through, ~1 in 12 on the live bus).
+# How often one write may ask to be read again after the board's read of our
+# page did not get through (~1 in 12 on the live bus).
 MAX_READ_RETRIES = 2
+# A clean 3001 sync follows a successful read by ~0.85 s; the next poll comes
+# 1.1–1.4 s after the read. No sync by then = the read failed.
+SYNC_ACK_S = 1.0
 
 _PAGES = (1001, 1091, 1181)
 
@@ -80,7 +83,8 @@ class Slave2Responder:
         self.flags_3011 = 0
         # Bits whose page we answered a read for, awaiting the board's 3001 sync.
         self._served = 0
-        # Bits to raise again at the next poll (board echoed them = read failed).
+        self._served_at = 0.0
+        # Bits to raise again at the next poll (read failed, see observe/reply).
         self._retry_bits = 0
         self._retries_left = 0
 
@@ -129,17 +133,23 @@ class Slave2Responder:
         ):
             # The board writes 3001×11 to us ~0.85 s after every page read; word 10
             # is its view of our flags. 0 = it took the page (every success on the
-            # live bus); an echo of the bit we just served (0.02–0.34 s after the
-            # read, 3/3 failures) means it did not process our reply and is falling
-            # back to the wired display's page. Ask to be read again at the next
-            # poll — bounded, so a board that keeps refusing cannot loop us.
+            # live bus). When the read did not get through the sync comes 0.02–0.34 s
+            # after the request and is mangled or echoes our bit (4/4 failures) and
+            # the board falls back to the wired display's page. So: a clean 0 acks
+            # the served bits; anything else, or no parsable sync at all before the
+            # next poll (see reply), asks to be read again — bounded, so a board
+            # that keeps refusing cannot loop us.
             n = min(len(frame.values), 30)
             self.block_3001[:n] = [int(v) & 0xFFFF for v in frame.values[:n]]
             if len(frame.values) > 10 and self._served:
                 echoed = int(frame.values[10]) & 0xFFFF & self._served
-                if echoed and self._retries_left > 0:
-                    self._retry_bits |= echoed
+                if echoed:
+                    self._schedule_retry(echoed)
                 self._served = 0
+
+    def _schedule_retry(self, bits: int) -> None:
+        if self._retries_left > 0:
+            self._retry_bits |= bits
 
     def cache_from_broadcast(self, regs: dict[int, int]) -> None:
         serial = [regs.get(self._broadcast_start + i, 0) for i in range(10)]
@@ -237,6 +247,11 @@ class Slave2Responder:
         qty = parsed.qty or 0
         if start == 3001:
             self._expire()  # drops flags whose overlay has timed out
+            if self._served and time.monotonic() - self._served_at >= SYNC_ACK_S:
+                # Served a page, no clean sync since: the board did not take it
+                # (live 2026-09-14 15:13: its sync arrived truncated to 28 B).
+                self._schedule_retry(self._served)
+                self._served = 0
             if self._retry_bits:
                 self.flags_3011 |= self._retry_bits
                 self._retry_bits = 0
@@ -256,6 +271,7 @@ class Slave2Responder:
             bits = FLAG_READ_1001 if start == 1001 else (FLAG_READ_1091 | FLAG_SETPOINT)
             if start in (1001, 1091):
                 self._served = self.flags_3011 & bits
+                self._served_at = time.monotonic()
                 self.flags_3011 &= ~bits
             return encode_fc03_reply(2, self._page(start)[:qty])
         if start == REG_3011:

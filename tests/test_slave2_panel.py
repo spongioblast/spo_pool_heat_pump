@@ -201,6 +201,32 @@ def test_board_echoing_our_bit_after_the_read_triggers_one_retry() -> None:
     assert poll.values[10] == 0
 
 
+def test_no_parsable_sync_after_the_read_also_triggers_a_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live 2026-09-14 15:13: the board's sync after a failed read arrived truncated
+    (28 of 31 B) and never parsed, so an echo-only trigger missed it."""
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    now = [100.0]
+    monkeypatch.setattr(slave2_mod.time, "monotonic", lambda: now[0])
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 3001, 30))
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    now[0] += 0.5  # a poll this early is not conclusive yet
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
+    now[0] += 0.7  # next poll, 1.2 s after the read, still no sync
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == FLAG_READ_1001
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    now[0] += 0.85
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))  # clean ack this time
+    now[0] += 5
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
+
+
 def test_read_retries_are_bounded() -> None:
     driver, _ = make_driver()
     board_cycle(driver, page_1001())
