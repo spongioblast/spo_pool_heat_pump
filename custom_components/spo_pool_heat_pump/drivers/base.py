@@ -82,6 +82,11 @@ class HeatPumpState:
         overshoot past the setpoint before the compressor stops. Otherwise
         fall back to which side of the setpoint the inlet sits.
         """
+        active = self.values.get("active_mode")
+        if active in ("heat", "cool"):
+            # PC1002 broadcast word 2012 is the direction the board is running
+            # (it never reports auto), which is exactly this question.
+            return active == "heat"
         inlet, outlet, target = self.t_inlet, self.t_outlet, self.setpoint
         if self.compressor_on and inlet is not None and outlet is not None and abs(outlet - inlet) >= 0.2:
             return outlet > inlet

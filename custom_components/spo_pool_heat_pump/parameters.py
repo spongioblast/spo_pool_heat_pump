@@ -45,6 +45,7 @@ OUTPUT_KEYS = {"outputs", "faults", "switches"}
 REGISTER_LABELS = {
     "power": "Power",
     "mode": "Mode",
+    "active_mode": "Running as",
     "setpoint": "Setpoint",
     "setpoint_heat": "Heat setpoint",
     "setpoint_cool": "Cool setpoint",

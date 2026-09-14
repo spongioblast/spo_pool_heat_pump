@@ -99,6 +99,12 @@
     "mode": {
       "reg": 2012,
       "write": 1012,
+      "prefer": "settings",
+      "enum": "mode",
+      "type": "enum"
+    },
+    "active_mode": {
+      "reg": 2012,
       "enum": "mode",
       "type": "enum"
     },

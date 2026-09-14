@@ -6,11 +6,12 @@ from spo_pool_heat_pump.parameters import catalog_payload, parameter_catalog, se
 from spo_pool_heat_pump.profiles import load_profile, profile_registers, service_menu_params
 
 
-def test_cosmo_catalog_is_193() -> None:
+def test_cosmo_catalog_is_194() -> None:
     profile = load_profile("mida_cosma_pc1002")
     rows = parameter_catalog(profile)
     assert len(rows) == len(profile_registers(profile)) + len(service_menu_params(profile))
-    assert len(rows) == 193
+    assert len(rows) == 194
+    assert any(row["key"] == "active_mode" and row["tier"] == "readonly" and row["group"] == "Status" for row in rows)
     assert {row["tier"] for row in rows} == {"safe", "service_menu", "readonly"}
     assert sum(1 for row in rows if row["tier"] == "service_menu") == 105
     assert sum(1 for row in rows if row["tier"] == "readonly" and row["key"] in service_menu_params(profile)) == 37

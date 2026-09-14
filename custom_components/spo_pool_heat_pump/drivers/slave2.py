@@ -14,10 +14,16 @@ board then reads that page back from the panel ~0.35 s later, applies it,
 pushes the new page to all slaves and writes 3001×11 with flags 0 to clear.
 Bits measured on the real display (dumps 2026-09-04 … 09-06, 13 events):
 
-* ``0x0004`` → board reads 1001×90 (4/4)
-* ``0x0020`` → board reads 1091×90 (6/6)
-* ``0x0040`` → board reads 1091×90 (2/2)
+* ``0x0004`` → board reads 1001×90 (4/4); the page diff was 1011 / 1016 / 1068-1069
+* ``0x0020`` → board reads 1091×90 (6/6); the page diff was always timers 1150-1159
+* ``0x0040`` → board reads 1091×90 (2/2); the page diff was the setpoint 1136
 * ``0x8000`` → seen once, board read nothing. Never send it.
+
+The bit says *what* changed, not just which page. Live test 2026-09-14: a
+setpoint written with ``0x0020`` made the board re-read 1091 from the wired
+display as well and keep the display's copy — the write was dropped. Setpoints
+(1135-1137) must go with ``0x0040``; ``0x0020`` is for the timer words. Other
+1091 words have never been changed from a panel in any dump.
 
 No bit for page 1181 was ever observed; writes there are overlaid but only
 reach the board if it reads that page for another reason.
@@ -34,8 +40,10 @@ import time
 from ..modbus_rtu import RtuFrame, encode_fc03_reply, encode_fc16_reply
 
 FLAG_READ_1001 = 0x0004
-FLAG_READ_1091 = 0x0020
-FLAG_HEAT_SP = 0x0040
+FLAG_READ_1091 = 0x0020  # timers in page 1091
+FLAG_SETPOINT = 0x0040  # setpoints 1135 cool / 1136 heat / 1137 auto
+FLAG_HEAT_SP = FLAG_SETPOINT  # historical name
+SETPOINT_REGS = range(1135, 1138)
 
 REG_3011 = 3011
 
@@ -148,7 +156,9 @@ class Slave2Responder:
         if start == 1001:
             self.flags_3011 |= FLAG_READ_1001
         elif start == 1091:
-            self.flags_3011 |= FLAG_HEAT_SP if register == 1136 else FLAG_READ_1091
+            self.flags_3011 |= (
+                FLAG_SETPOINT if register in SETPOINT_REGS else FLAG_READ_1091
+            )
 
     def discard_write(self, register: int) -> None:
         self._overlay.pop(register, None)
@@ -197,7 +207,7 @@ class Slave2Responder:
             if start == 1001:
                 self.flags_3011 &= ~FLAG_READ_1001
             elif start == 1091:
-                self.flags_3011 &= ~(FLAG_READ_1091 | FLAG_HEAT_SP)
+                self.flags_3011 &= ~(FLAG_READ_1091 | FLAG_SETPOINT)
             return encode_fc03_reply(2, self._page(start)[:qty])
         if start == REG_3011:
             return encode_fc03_reply(2, [self.flags_3011])

@@ -51,7 +51,6 @@ class Pc1002BusDriver(HeatPumpDriver):
         self._bus_lock = asyncio.Lock()
         self._last_3011: int | None = None
         self._pending_flag_pages: list[int] | str | None = None
-        self._optimistic_mode: str | None = None
         self.pending = PendingWrites(profile)
 
     async def async_start(self) -> None:
@@ -99,8 +98,6 @@ class Pc1002BusDriver(HeatPumpDriver):
         state = apply_map(self.profile, regs, settings=self.settings.regs)
         if not state.clock:
             state.clock = decode_panel_clock(self.settings.page_3001 or self.slave2.block_3001)
-        if self._optimistic_mode is not None and state.mode == self._optimistic_mode:
-            self._optimistic_mode = None
         self.pending.overlay(state)
         self.state = state
         if self._on_state:
@@ -108,7 +105,10 @@ class Pc1002BusDriver(HeatPumpDriver):
         return state
 
     def _write_mode(self) -> str:
-        return self._optimistic_mode or self.state.mode
+        # ``state.mode`` is the selected mode (page 1001 word 1012 when seeded,
+        # else broadcast 2012) and already carries a pending mode write as an
+        # overlay, so it is the right key for the per-mode setpoint register.
+        return self.state.mode
 
     def _flag_spec(self) -> dict[str, Any]:
         return ((self.profile.get("driver") or {}).get("settings") or {}).get("flags") or {}
@@ -186,29 +186,36 @@ class Pc1002BusDriver(HeatPumpDriver):
 
     async def write_register(self, name: str, value: int | float) -> None:
         register, encoded = self.encoded_write(name, value)
-        self.pending.mark(name, encoded)
+        await self._write_encoded(name, register, encoded)
+
+    async def _write_encoded(self, shown_as: str, register: int, encoded: int) -> None:
+        """Send ``register=encoded`` and show it optimistically under ``shown_as``."""
+        self.pending.mark(shown_as, encoded)
         try:
             await self._emit_write(register, encoded)
             for extra in self.extra_write_addrs(register):
                 await self._emit_write(extra, encoded)
         except Exception:
             # Nothing reached the bus; do not show a value the pump never got.
-            self.pending.discard(name)
+            self.pending.discard(shown_as)
             self.slave2.discard_write(register)
             self._republish_if_seeded()
             raise
 
     async def _emit_write(self, register: int, encoded: int) -> None:
+        # The settings cache is deliberately not touched here: it mirrors what
+        # the *board* has said. The new value is shown through ``self.pending``
+        # and is confirmed only when the board pushes the page (or broadcasts the
+        # derived word) with that value; writing our own cache would confirm the
+        # write to ourselves.
         if self.write_path == WRITE_PATH_SLAVE2:
             if not self.slave2.page_seeded(register):
                 await self.refresh_settings()
             if not self.slave2.page_seeded(register):
                 raise SettingsUnseeded(f"settings page for {register} is not seeded")
-            self.settings.put(register, encoded)
             self.slave2.queue_write(register, encoded)
             self._republish_if_seeded()
             return
-        self.settings.put(register, encoded)
         self._republish_if_seeded()
         slave = 99 if self.write_path == WRITE_PATH_DTU else 1
         result = self._send(encode_fc16(slave, register, [encoded]))
@@ -219,22 +226,32 @@ class Pc1002BusDriver(HeatPumpDriver):
         await self.write_register("power", on)
 
     async def set_mode(self, mode: str) -> None:
-        self._optimistic_mode = mode
+        # Page 1001 word 1012 is the selected mode. The board switches the working
+        # setpoint (broadcast 2013) to the matching 1135/1136/1137 value itself;
+        # the panel does not touch 1013 for a mode change.
         await self.write_register("mode", mode)
-        key = {"heat": "setpoint_heat", "cool": "setpoint_cool", "auto": "setpoint_auto"}.get(mode)
-        saved = getattr(self.state, key or "", None) if key else None
-        if saved is not None:
-            await self.write_register("setpoint", saved)
 
     async def set_setpoint(self, celsius: float, which: str | None = None) -> None:
+        if which is not None:
+            await self.write_register(which, celsius)
+            return
         mapping = profile_registers(self.profile)
-        await self.write_register(which or "setpoint", celsius)
-        if which is None:
-            extra = {"heat": "setpoint_heat", "cool": "setpoint_cool", "auto": "setpoint_auto"}.get(
-                self._write_mode()
-            )
-            if extra and extra in mapping and "write" in mapping[extra]:
-                await self.write_register(extra, celsius)
+        per_mode = {
+            "heat": "setpoint_heat",
+            "cool": "setpoint_cool",
+            "auto": "setpoint_auto",
+        }.get(self._write_mode())
+        if not (per_mode and per_mode in mapping and "write" in mapping[per_mode]):
+            await self.write_register("setpoint", celsius)
+            return
+        # The working setpoint is the per-mode word in page 1091 (1135 cool /
+        # 1136 heat / 1137 auto); that is the one register the wired display
+        # changes (flag 0x0040) and the board mirrors it into broadcast 2013.
+        # Word 1013 in page 1001 is panel-owned and lags 2013 for minutes, so
+        # writing it neither moves the target nor confirms anything. Show the
+        # new target optimistically under "setpoint" and confirm on 2013.
+        register, encoded = self.encoded_write(per_mode, celsius)
+        await self._write_encoded("setpoint", register, encoded)
 
     async def set_silent(self, on: bool) -> None:
         await self.write_register("silent", on)

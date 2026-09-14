@@ -37,6 +37,12 @@ def apply_map(
     settings = settings or {}
 
     def raw_for(spec: dict[str, Any]) -> int | None:
+        if spec.get("prefer") == "settings":
+            # The settings page holds the selected value; the broadcast word is the
+            # board's derived view (2012 = active heat/cool, never auto).
+            write = spec.get("write")
+            if write is not None and int(write) in settings:
+                return settings[int(write)]
         if "reg" in spec and spec["reg"] in regs:
             return regs[spec["reg"]]
         if "block" in spec:
