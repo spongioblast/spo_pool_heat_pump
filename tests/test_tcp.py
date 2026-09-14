@@ -296,3 +296,50 @@ def test_send_does_not_connect_while_reader_reconnects() -> None:
             assert client.connected
 
     asyncio.run(run())
+
+
+def test_reconnect_reopens_half_open_socket() -> None:
+    """A silent peer (DR164 rebooted, no FIN) must not pin the read loop forever:
+    reconnect() drops the socket and the loop dials again."""
+
+    async def run() -> None:
+        accepted = 0
+        second = asyncio.Event()
+        conn_events: list[bool] = []
+
+        async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            nonlocal accepted
+            accepted += 1
+            if accepted >= 2:
+                second.set()
+            try:
+                await reader.read(1)  # never sends anything, never closes
+            finally:
+                writer.close()
+
+        server = await asyncio.start_server(handler, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        client = TcpRtuClient("127.0.0.1", port, idle_s=0.01)
+
+        async def on_frame(_blob: bytes) -> None:
+            return None
+
+        await client.start(on_frame, on_connection=conn_events.append)
+        await asyncio.sleep(0.05)
+        assert accepted == 1 and client.connected
+        t0 = asyncio.get_running_loop().time()
+        await client.reconnect()
+        await asyncio.wait_for(second.wait(), timeout=2.0)
+        assert asyncio.get_running_loop().time() - t0 < 0.5  # no 1 s backoff on a requested redial
+        await asyncio.sleep(0.05)
+        assert client.connected
+        assert conn_events[-2:] == [False, True]
+        await client.reconnect()  # idempotent on a live socket too
+        await asyncio.sleep(0.2)
+        assert accepted == 3
+        await client.stop()
+        await client.reconnect()  # no-op once stopped
+        server.close()
+        await server.wait_closed()
+
+    asyncio.run(run())

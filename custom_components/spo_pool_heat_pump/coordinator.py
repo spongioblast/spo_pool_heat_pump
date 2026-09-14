@@ -302,15 +302,28 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         pending = getattr(self.driver, "pending", None)
         return bool(pending)
 
+    def _kick_transport(self) -> None:
+        """Ask the transport for a fresh socket; a silent bus is usually a
+        half-open TCP session after a DR164 reboot or WiFi drop."""
+        reconnect = getattr(self.client, "reconnect", None)
+        if reconnect is None:
+            return
+        result = reconnect()
+        if asyncio.iscoroutine(result):
+            self._create_task(result, "spo_pool_heat_pump_stale_reconnect")
+
     def _mark_stale(self) -> None:
-        """No fresh frame for STALE_SECONDS — mark unavailable.
+        """No fresh frame for STALE_SECONDS — reconnect, and mark unavailable.
 
         Push profiles wait for the 2001 broadcast; poll profiles wait for a poll cycle.
         The board itself pauses ~6 s after adopting a change; if a write is still
         in flight, keep showing the optimistic value and wait another window.
+        The timer is re-armed either way so a bus that stays silent gets a
+        reconnect attempt every window.
         """
+        self._kick_transport()
+        self._arm_stale()
         if self._has_pending_writes():
-            self._arm_stale()
             return
         current = self.state
         current.available = False

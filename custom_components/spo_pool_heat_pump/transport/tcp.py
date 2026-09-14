@@ -37,6 +37,7 @@ class TcpRtuClient:
         self._on_frame: FrameCallback | None = None
         self._on_connection: ConnectionCallback | None = None
         self._unavailable_logged = False
+        self._redial_now = False
         self._stop = asyncio.Event()
         self._last_rx = 0.0
         self._last_tx = 0.0
@@ -109,6 +110,7 @@ class TcpRtuClient:
             _LOGGER.debug("Connecting to %s:%s", self.host, self.port)
             self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
             self._set_nodelay()
+            self._redial_now = False
             self._last_rx = asyncio.get_running_loop().time()
             self._ready.set()
             self._note_reconnected()
@@ -127,6 +129,21 @@ class TcpRtuClient:
     async def _close(self) -> None:
         async with self._conn_lock:
             await self._close_unlocked()
+
+    async def reconnect(self) -> None:
+        """Drop the socket so the read loop opens a fresh one.
+
+        A DR164 reboot or a WiFi drop can leave our side half-open: the peer
+        is gone but no FIN/RST ever arrives, so ``read()`` blocks for good and
+        slave-2 writes (which only go out when the board polls us) never touch
+        the socket either. The coordinator calls this when the bus has been
+        silent for STALE_SECONDS.
+        """
+        if self._stop.is_set() or self._writer is None:
+            return
+        self._note_unavailable(ConnectionError("bus silent"))
+        self._redial_now = True
+        await self._close()
 
     async def _close_unlocked(self) -> None:
         self._ready.clear()
@@ -206,6 +223,10 @@ class TcpRtuClient:
                 buf.clear()
                 if self._stop.is_set():
                     return
+                if self._redial_now:
+                    # We dropped the socket ourselves (reconnect()); dial again at once.
+                    self._redial_now = False
+                    continue
                 await asyncio.sleep(1.0)
 
     async def _emit(self, blob: bytes) -> None:

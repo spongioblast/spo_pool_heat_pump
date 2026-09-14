@@ -118,6 +118,40 @@ def test_coordinator_stale_waits_out_pending_writes() -> None:
     asyncio.run(run())
 
 
+def test_coordinator_stale_kicks_transport_reconnect() -> None:
+    """A silent bus reconnects the socket every window, pending write or not."""
+
+    async def run() -> None:
+        hass = MagicMock()
+        hass.loop = asyncio.get_running_loop()
+        entry = MagicMock()
+        entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
+        entry.options = {}
+        entry.unique_id = "uid"
+        entry.title = "Pump"
+        entry.entry_id = "e1"
+        client = MagicMock()
+        client.reconnect = AsyncMock()
+        coord = PoolHeatPumpCoordinator(hass, entry, client)
+        coord.async_set_updated_data = lambda state: setattr(coord, "data", state)
+        coord.async_set_update_error = lambda exc: None
+        state = HeatPumpState(available=True, serial="B99", mode="heat")
+        coord.driver.pending.mark("mode", 2)
+        with patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.05):
+            coord._push(state)
+            await asyncio.sleep(0.07)
+            assert client.reconnect.await_count == 1
+            assert coord.state.available is True
+            await asyncio.sleep(0.05)
+            assert client.reconnect.await_count == 2
+            coord._push(state)  # a frame arrived: timer restarts, no extra kick
+            await asyncio.sleep(0.02)
+            assert client.reconnect.await_count == 2
+        coord._stale_handle.cancel()
+
+    asyncio.run(run())
+
+
 def test_dump_only_climate_has_no_write_features() -> None:
     coord = MagicMock()
     coord.profile = load_profile("unknown_dump_only")
@@ -176,6 +210,8 @@ def test_climate_turn_on_writes_power_only() -> None:
 
 
 def test_on_frame_does_not_block_on_flag_reread() -> None:
+    """The flag re-read only exists off the slave-2 path (as the second panel we
+    are pushed every page); exercise it on the DTU path."""
     sent: list[bytes] = []
 
     async def send(frame: bytes) -> None:
@@ -186,7 +222,7 @@ def test_on_frame_does_not_block_on_flag_reread() -> None:
         hass.loop = asyncio.get_running_loop()
         entry = MagicMock()
         entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
-        entry.options = {}
+        entry.options = {"write_path": "dtu_99"}
         entry.unique_id = "uid"
         entry.title = "Pump"
         entry.entry_id = "e1"
@@ -219,7 +255,7 @@ def test_flag_refresh_cancelled_on_stop() -> None:
         hass.loop = asyncio.get_running_loop()
         entry = MagicMock()
         entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
-        entry.options = {}
+        entry.options = {"write_path": "dtu_99"}
         entry.unique_id = "uid"
         entry.title = "Pump"
         entry.entry_id = "e1"
