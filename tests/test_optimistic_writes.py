@@ -75,6 +75,28 @@ def test_unconfirmed_write_reverts_after_ttl(monkeypatch: pytest.MonkeyPatch) ->
     assert driver.state.pending == []
 
 
+def test_page_only_values_get_the_longer_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mode lives in page word 1012 and is confirmed by the board's page push, which
+    lands ~8-10 s after the write; it must outlive the 12 s broadcast TTL."""
+    from spo_pool_heat_pump.drivers.pending import PAGE_TTL_S
+
+    driver, _ = make_driver()
+    now = [1000.0]
+    monkeypatch.setattr(pending_mod.time, "monotonic", lambda: now[0])
+    asyncio.run(driver.set_mode("auto"))
+    assert driver.state.mode == "auto"
+
+    now[0] += PENDING_TTL_S + 1
+    driver.handle_frame(broadcast())
+    assert driver.state.mode == "auto", "page-confirmed value still inside its TTL"
+    assert "mode" in driver.state.pending
+
+    now[0] += PAGE_TTL_S - PENDING_TTL_S
+    driver.handle_frame(broadcast())
+    assert driver.state.mode == "heat", "device value wins after the page TTL"
+    assert driver.state.pending == []
+
+
 def test_setpoint_and_mode_optimistic() -> None:
     driver, _ = make_driver()
     asyncio.run(driver.set_setpoint(30.0))

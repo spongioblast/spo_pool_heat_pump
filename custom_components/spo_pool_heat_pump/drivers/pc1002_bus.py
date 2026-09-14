@@ -14,11 +14,11 @@ from typing import Any, Callable
 
 from ..const import BROADCAST_QTY, BROADCAST_START, WRITE_PATH_DTU, WRITE_PATH_SLAVE2
 from ..modbus_rtu import encode_fc03, encode_fc16, parse_frame
-from ..profiles import decode_panel_clock, profile_registers
+from ..profiles import decode_panel_clock, lookup_write_spec, profile_registers
 from .base import HeatPumpDriver, HeatPumpState
 from .decode import apply_map
 from .pending import DEFAULT_TTL_S as PENDING_TTL_S
-from .pending import PendingWrites
+from .pending import PAGE_TTL_S, PendingWrites
 from .settings import SettingsCache
 from .slave2 import SettingsUnseeded, Slave2Responder
 
@@ -188,9 +188,18 @@ class Pc1002BusDriver(HeatPumpDriver):
         register, encoded = self.encoded_write(name, value)
         await self._write_encoded(name, register, encoded)
 
+    def _pending_ttl(self, name: str) -> float:
+        """Broadcast-confirmed values (power, setpoint, quiet) echo in 2–4 s; a value
+        that only exists in a settings page (mode, timers) is confirmed by the
+        board's page push one round later, ~8–10 s after the write."""
+        spec = lookup_write_spec(self.profile, name)
+        if spec.get("prefer") == "settings" or "reg" not in spec:
+            return PAGE_TTL_S
+        return self.pending.ttl_s
+
     async def _write_encoded(self, shown_as: str, register: int, encoded: int) -> None:
         """Send ``register=encoded`` and show it optimistically under ``shown_as``."""
-        self.pending.mark(shown_as, encoded)
+        self.pending.mark(shown_as, encoded, ttl_s=self._pending_ttl(shown_as))
         try:
             await self._emit_write(register, encoded)
             for extra in self.extra_write_addrs(register):
