@@ -37,13 +37,13 @@ _PER_MODE_SETPOINT = {
 # How our copy of a settings page gets seeded on the slave-2 path.
 #
 # The board does NOT push 1001/1091/1181 to the displays every cycle. DR164 dumps
-# 2026-09-14 (three 15-min windows): pushes to slave 1/2 came only right after a
-# page *changed* (a write), 1091 to slave 2 was 0 / 5 / 1 times; the ~once-a-minute
-# pushes go to the WiFi module (slave 99) and slave 2 only rides along on those.
-# After a Home Assistant restart 1091 therefore stays unseeded until the module is
-# pushed (a minute or more; never if no module is plugged in) or someone changes a
-# setpoint on the panel. Build 03b4f19 waited 3 s and raised
-# "settings page for 1136 is not seeded" on the live box.
+# 2026-09-14: in 15 min of mode toggles (17:55) 1091 went to slave 1/2 zero times;
+# in 15 min with four setpoint changes (19:06) it went to slave 2 nine times, all
+# within seconds of a write. 1181 never went to slave 1/2. Idle, the board pushes
+# 1091 only to the WiFi module (slave 99), every ~210 s. After a Home Assistant
+# restart 1091 therefore stays unseeded until someone changes a setpoint on the
+# panel. Build 03b4f19 waited 3 s and raised "settings page for 1136 is not
+# seeded" on the live box.
 #
 # So: wait briefly for a push (cheap, and the board may be mid-push), then do the
 # one-shot FC03 read of the display that ede2449 did all afternoon without a
