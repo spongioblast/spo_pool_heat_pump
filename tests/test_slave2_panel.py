@@ -350,3 +350,92 @@ def test_second_panel_is_the_default_write_path() -> None:
     assert suggested_write_path("pc1002_bus", {}) == WRITE_PATH_SLAVE2
     pinned = {"driver": {"default_write": "dtu_99"}}
     assert suggested_write_path("pc1002_bus", {}, pinned) == "dtu_99"
+
+
+def _page_1091(heat: int) -> list[int]:
+    values = [5] * 90
+    values[1135 - 1091] = 245
+    values[1136 - 1091] = heat
+    values[1137 - 1091] = 300
+    return values
+
+
+def test_setpoint_accepted_by_page_push_does_not_revert_while_2013_lags(monkeypatch) -> None:
+    """Live bus 2026-09-14, 36→35: page 1091 pushed back with 1136=35 at +8.6 s,
+    broadcast 2013 still 36 until +21 s. The card must not fall back to 36 in
+    between, and must stop pulsing once the page proves the board took it."""
+    from spo_pool_heat_pump.drivers import pending as pending_mod
+
+    now = [1000.0]
+    monkeypatch.setattr(pending_mod.time, "monotonic", lambda: now[0])
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    assert driver.state.mode == "heat" and driver.state.setpoint == 34.0
+
+    asyncio.run(driver.set_setpoint(32.0))
+    assert driver.state.setpoint == 32.0 and driver.state.pending == ["setpoint"]
+
+    now[0] += 4
+    driver.handle_frame(broadcast(r2013=340))  # broadcast has not moved yet
+    assert driver.state.setpoint == 32.0 and driver.state.pending == ["setpoint"]
+
+    now[0] += 4.6
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(320)))  # board pushes our value back
+    assert driver.state.setpoint_heat == 32.0
+    assert driver.state.setpoint == 32.0
+    assert driver.state.pending == [], "accepted by the board: stop pulsing"
+
+    now[0] += 5  # 13.6 s after the write: past the old 12 s TTL
+    driver.handle_frame(broadcast(r2013=340))  # 2013 still lags
+    assert driver.state.setpoint == 32.0, "must not snap back to 34"
+    assert driver.state.pending == []
+
+    now[0] += 7.4  # 21 s after the write
+    driver.handle_frame(broadcast(r2013=320))
+    assert driver.state.setpoint == 32.0 and driver.state.pending == []
+    assert len(driver.pending) == 0
+
+
+def test_setpoint_without_any_echo_still_reverts_and_warns(monkeypatch, caplog) -> None:
+    from spo_pool_heat_pump.drivers import pending as pending_mod
+    from spo_pool_heat_pump.drivers.pending import PAGE_TTL_S
+
+    now = [1000.0]
+    monkeypatch.setattr(pending_mod.time, "monotonic", lambda: now[0])
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    asyncio.run(driver.set_setpoint(32.0))
+
+    now[0] += PAGE_TTL_S - 1
+    driver.handle_frame(broadcast(r2013=340))
+    assert driver.state.setpoint == 32.0, "page window not over yet"
+    now[0] += 2
+    with caplog.at_level("WARNING"):
+        driver.handle_frame(broadcast(r2013=340))
+    assert driver.state.setpoint == 34.0 and driver.state.pending == []
+    assert "not confirmed" in caplog.text
+
+
+def test_setpoint_accepted_but_2013_never_follows_lets_go_quietly(monkeypatch, caplog) -> None:
+    from spo_pool_heat_pump.drivers import pending as pending_mod
+    from spo_pool_heat_pump.drivers.pending import PAGE_TTL_S
+
+    now = [1000.0]
+    monkeypatch.setattr(pending_mod.time, "monotonic", lambda: now[0])
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    asyncio.run(driver.set_setpoint(32.0))
+    now[0] += 8
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(320)))
+    assert driver.state.pending == []
+    now[0] += PAGE_TTL_S + 1
+    with caplog.at_level("WARNING"):
+        driver.handle_frame(broadcast(r2013=340))
+    assert driver.state.setpoint == 34.0
+    assert "not confirmed" not in caplog.text

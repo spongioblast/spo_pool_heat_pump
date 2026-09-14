@@ -197,18 +197,26 @@ class Pc1002BusDriver(HeatPumpDriver):
         register, encoded = self.encoded_write(name, value)
         await self._write_encoded(name, register, encoded)
 
-    def _pending_ttl(self, name: str) -> float:
-        """Broadcast-confirmed values (power, setpoint, quiet) echo in 2–4 s; a value
-        that only exists in a settings page (mode, timers) is confirmed by the
-        board's page push one round later, ~8–10 s after the write."""
+    def _pending_ttl(self, name: str, also: str | None = None) -> float:
+        """Broadcast-confirmed values (power, quiet) echo in 2–4 s; a value that
+        only exists in a settings page (mode, timers) is confirmed by the board's
+        page push one round later, ~8–10 s after the write. A write that can be
+        confirmed by a page as well (setpoint) waits the page window too."""
         spec = lookup_write_spec(self.profile, name)
-        if spec.get("prefer") == "settings" or "reg" not in spec:
+        if also or spec.get("prefer") == "settings" or "reg" not in spec:
             return PAGE_TTL_S
         return self.pending.ttl_s
 
-    async def _write_encoded(self, shown_as: str, register: int, encoded: int) -> None:
-        """Send ``register=encoded`` and show it optimistically under ``shown_as``."""
-        self.pending.mark(shown_as, encoded, ttl_s=self._pending_ttl(shown_as))
+    async def _write_encoded(
+        self, shown_as: str, register: int, encoded: int, *, also: str | None = None
+    ) -> None:
+        """Send ``register=encoded`` and show it optimistically under ``shown_as``.
+
+        ``also`` names a second state field (the per-mode setpoint word from page
+        1091) whose echo proves the board took the write before ``shown_as``
+        (broadcast 2013) catches up.
+        """
+        self.pending.mark(shown_as, encoded, ttl_s=self._pending_ttl(shown_as, also), also=also)
         accepted = False
         try:
             await self._emit_write(register, encoded)
@@ -279,9 +287,11 @@ class Pc1002BusDriver(HeatPumpDriver):
         # changes (flag 0x0040) and the board mirrors it into broadcast 2013.
         # Word 1013 in page 1001 is panel-owned and lags 2013 for minutes, so
         # writing it neither moves the target nor confirms anything. Show the
-        # new target optimistically under "setpoint" and confirm on 2013.
+        # new target optimistically under "setpoint"; the board's 1091 push
+        # (~8 s) proves it took the value, 2013 follows up to ~12 s later
+        # (36→35 on the live bus: page 8.6 s, broadcast 21 s after the write).
         register, encoded = self.encoded_write(per_mode, celsius)
-        await self._write_encoded("setpoint", register, encoded)
+        await self._write_encoded("setpoint", register, encoded, also=per_mode)
 
     async def set_silent(self, on: bool) -> None:
         await self.write_register("silent", on)
