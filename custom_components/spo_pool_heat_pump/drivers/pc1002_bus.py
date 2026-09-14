@@ -2,14 +2,16 @@
 
 The main board is the bus master (see drivers/slave2.py). ``slave2`` answers
 its polls and pushes like a second display and hands it changed settings the
-way the wired display does. ``dtu_99`` / ``panel_1`` send an unsolicited FC16
-as a second master; neither has been seen to work on the verified bus.
+way the wired display does. ``dtu_99`` is mode-only on this bus (1012 is
+adopted; 1013/1076 are acked by the module and ignored). ``panel_1`` sends an
+unsolicited FC16 at the wired display and is unproven.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Callable
 
 from ..const import BROADCAST_QTY, BROADCAST_START, WRITE_PATH_DTU, WRITE_PATH_SLAVE2
@@ -25,6 +27,16 @@ from .slave2 import SettingsUnseeded, Slave2Responder
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["PENDING_TTL_S", "Pc1002BusDriver"]
+
+_SETPOINT_KEYS = frozenset({"setpoint", "setpoint_heat", "setpoint_cool", "setpoint_auto"})
+_PER_MODE_SETPOINT = {
+    "heat": "setpoint_heat",
+    "cool": "setpoint_cool",
+    "auto": "setpoint_auto",
+}
+# Board pushes 1001/1091/1181 every cycle (~1.7 s). Wait one extra cycle plus slack
+# before giving up; do not FC03-read the display (that made HA a second master).
+PAGE_SEED_WAIT_S = 3.0
 
 
 class Pc1002BusDriver(HeatPumpDriver):
@@ -48,10 +60,12 @@ class Pc1002BusDriver(HeatPumpDriver):
         self.settings = SettingsCache(broadcast_start=self._broadcast_start)
         self.slave2 = Slave2Responder(broadcast_start=self._broadcast_start)
         self._reply_event = asyncio.Event()
+        self._page_seeded = asyncio.Event()
         self._bus_lock = asyncio.Lock()
         self._last_3011: int | None = None
         self._pending_flag_pages: list[int] | str | None = None
         self.pending = PendingWrites(profile)
+        self.page_seed_wait_s = PAGE_SEED_WAIT_S
 
     async def async_start(self) -> None:
         return None
@@ -71,11 +85,13 @@ class Pc1002BusDriver(HeatPumpDriver):
         else:
             settings_changed = self.settings.absorb_frame(parsed)
         if parsed.function == 16 and parsed.start in (1001, 1091, 1181) and parsed.values:
-            self.slave2.seed_page(int(parsed.start), list(parsed.values))
+            if self.slave2.seed_page(int(parsed.start), list(parsed.values)):
+                self._page_seeded.set()
         matched = self.settings.take_page()
         if matched is not None:
             start, values = matched
-            self.slave2.seed_page(start, values)
+            if self.slave2.seed_page(start, values):
+                self._page_seeded.set()
             self._reply_event.set()
             settings_changed = True
         if (
@@ -113,11 +129,11 @@ class Pc1002BusDriver(HeatPumpDriver):
             self._on_state(state)
         return state
 
-    def _write_mode(self) -> str:
-        # ``state.mode`` is the selected mode (page 1001 word 1012 when seeded,
-        # else broadcast 2012) and already carries a pending mode write as an
-        # overlay, so it is the right key for the per-mode setpoint register.
-        return self.state.mode
+    def _write_mode(self) -> str | None:
+        # Selected mode (page 1012, including a pending overlay) picks the
+        # per-mode word. Until 1001 is seeded, fall back to the running
+        # direction (2012) so a heat/cool write still hits 1136/1135.
+        return self.state.mode or self.state.get("active_mode")
 
     def _flag_spec(self) -> dict[str, Any]:
         return ((self.profile.get("driver") or {}).get("settings") or {}).get("flags") or {}
@@ -194,6 +210,10 @@ class Pc1002BusDriver(HeatPumpDriver):
             return ok
 
     async def write_register(self, name: str, value: int | float) -> None:
+        if name in _SETPOINT_KEYS:
+            which = None if name == "setpoint" else name
+            await self.set_setpoint(float(value), which=which)
+            return
         register, encoded = self.encoded_write(name, value)
         await self._write_encoded(name, register, encoded)
 
@@ -242,7 +262,7 @@ class Pc1002BusDriver(HeatPumpDriver):
         # write to ourselves.
         if self.write_path == WRITE_PATH_SLAVE2:
             if not self.slave2.page_seeded(register):
-                await self.refresh_settings()
+                await self._wait_for_page_seed(register)
             if not self.slave2.page_seeded(register):
                 raise SettingsUnseeded(f"settings page for {register} is not seeded")
             self.slave2.queue_write(register, encoded)
@@ -254,33 +274,48 @@ class Pc1002BusDriver(HeatPumpDriver):
         if asyncio.iscoroutine(result):
             await result
 
+    async def _wait_for_page_seed(self, register: int) -> None:
+        """Wait for the board to push the page. Never FC03-read the display."""
+        deadline = time.monotonic() + self.page_seed_wait_s
+        while not self.slave2.page_seeded(register):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            self._page_seeded.clear()
+            if self.slave2.page_seeded(register):
+                return
+            try:
+                await asyncio.wait_for(self._page_seeded.wait(), timeout=remaining)
+            except TimeoutError:
+                return
+
     async def set_power(self, on: bool) -> None:
         await self.write_register("power", on)
 
     async def set_mode(self, mode: str) -> None:
         # Page 1001 word 1012 is the selected mode. The board switches the working
         # setpoint (broadcast 2013) to the matching 1135/1136/1137 value itself;
-        # the panel does not touch 1013 for a mode change.
-        await self.write_register("mode", mode)
+        # the panel does not touch 1013 for a mode change. Drop a pending setpoint
+        # overlay so we do not keep showing the old mode's target while 2013 swaps.
+        self.pending.discard("setpoint")
+        await self._write_encoded("mode", *self.encoded_write("mode", mode))
 
     async def set_setpoint(self, celsius: float, which: str | None = None) -> None:
-        if which is not None:
-            await self.write_register(which, celsius)
-            return
         if self.write_path == WRITE_PATH_DTU:
             # The factory WiFi module takes the app's words: it acked 1012 (and the
             # board adopted the mode 1.5 s later) but ignored 1136 on the live bus
             # (2026-09-14 16:44). Send the working setpoint 1013 like the app does.
-            await self.write_register("setpoint", celsius)
+            register, encoded = self.encoded_write("setpoint", celsius)
+            await self._write_encoded("setpoint", register, encoded)
             return
         mapping = profile_registers(self.profile)
-        per_mode = {
-            "heat": "setpoint_heat",
-            "cool": "setpoint_cool",
-            "auto": "setpoint_auto",
-        }.get(self._write_mode())
+        if which in _PER_MODE_SETPOINT.values():
+            per_mode = which
+        else:
+            per_mode = _PER_MODE_SETPOINT.get(self._write_mode() or "")
         if not (per_mode and per_mode in mapping and "write" in mapping[per_mode]):
-            await self.write_register("setpoint", celsius)
+            register, encoded = self.encoded_write("setpoint", celsius)
+            await self._write_encoded("setpoint", register, encoded)
             return
         # The working setpoint is the per-mode word in page 1091 (1135 cool /
         # 1136 heat / 1137 auto); that is the one register the wired display

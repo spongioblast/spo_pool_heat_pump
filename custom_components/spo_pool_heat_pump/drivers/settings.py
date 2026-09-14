@@ -11,6 +11,12 @@ from __future__ import annotations
 from ..modbus_rtu import RtuFrame, parse_frame
 
 SETTINGS_PAGES = (1001, 1091, 1181, 3001)
+MENU_PAGES = (1001, 1091, 1181)
+
+
+def is_blank_menu_page(start: int, values: list[int]) -> bool:
+    """A CRC-valid all-zero 1001/1091/1181 page would wipe the menu if we served it."""
+    return start in MENU_PAGES and bool(values) and all(int(v) == 0 for v in values)
 
 
 class SettingsCache:
@@ -44,6 +50,8 @@ class SettingsCache:
         return self.absorb_frame(parsed) if parsed else False
 
     def absorb_fc03_reply(self, start: int, values: list[int]) -> bool:
+        if is_blank_menu_page(start, values):
+            return False
         if start == 3001:
             self.page_3001 = list(values)
         changed = False
@@ -70,6 +78,8 @@ class SettingsCache:
                 return False
             self._pending = None
             values = list(parsed.values)
+            if is_blank_menu_page(start, values):
+                return False
             self._matched = (start, values)
             return self.absorb_fc03_reply(start, values)
         return False

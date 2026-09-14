@@ -20,7 +20,7 @@ from spo_pool_heat_pump.const import CONF_PORT, STALE_SECONDS  # noqa: E402
 from spo_pool_heat_pump.coordinator import PoolHeatPumpCoordinator  # noqa: E402
 from spo_pool_heat_pump.drivers.base import HeatPumpState  # noqa: E402
 from spo_pool_heat_pump.drivers.pc1002_bus import Pc1002BusDriver  # noqa: E402
-from spo_pool_heat_pump.modbus_rtu import parse_frame  # noqa: E402
+from spo_pool_heat_pump.modbus_rtu import encode_fc03, parse_frame  # noqa: E402
 from spo_pool_heat_pump.profiles import load_profile  # noqa: E402
 
 
@@ -148,6 +148,61 @@ def test_coordinator_stale_kicks_transport_reconnect() -> None:
             await asyncio.sleep(0.02)
             assert client.reconnect.await_count == 2
         coord._stale_handle.cancel()
+
+    asyncio.run(run())
+
+
+def test_coordinator_stale_does_not_reconnect_while_frames_arrive() -> None:
+    """Polls / page pushes keep the socket; only a dead line redials."""
+
+    async def run() -> None:
+        hass = MagicMock()
+        hass.loop = asyncio.get_running_loop()
+        entry = MagicMock()
+        entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
+        entry.options = {}
+        entry.unique_id = "uid"
+        entry.title = "Pump"
+        entry.entry_id = "e1"
+        client = MagicMock()
+        client.reconnect = AsyncMock()
+        client.send = AsyncMock()
+        coord = PoolHeatPumpCoordinator(hass, entry, client)
+        coord.async_set_updated_data = lambda state: setattr(coord, "data", state)
+        coord.async_set_update_error = lambda exc: None
+        state = HeatPumpState(available=True, serial="B99")
+        poll = encode_fc03(2, 3001, 30)
+        with patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.05):
+            coord._push(state)
+            for _ in range(4):
+                await coord.async_on_frame(poll)
+                await asyncio.sleep(0.03)
+            assert client.reconnect.await_count == 0
+            assert coord.state.available is False
+            await asyncio.sleep(0.06)
+            assert client.reconnect.await_count == 1
+        coord._stale_handle.cancel()
+
+    asyncio.run(run())
+
+
+def test_slave2_skips_startup_settings_refresh() -> None:
+    async def run() -> None:
+        hass = MagicMock()
+        hass.loop = asyncio.get_running_loop()
+        entry = MagicMock()
+        entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
+        entry.options = {}
+        entry.unique_id = "uid"
+        entry.title = "Pump"
+        entry.entry_id = "e1"
+        coord = PoolHeatPumpCoordinator(hass, entry, MagicMock())
+        coord.driver.refresh_settings = AsyncMock()
+        await coord._async_refresh_settings_once()
+        coord.driver.refresh_settings.assert_not_called()
+        coord.driver.write_path = "dtu_99"
+        await coord._async_refresh_settings_once()
+        coord.driver.refresh_settings.assert_awaited()
 
     asyncio.run(run())
 

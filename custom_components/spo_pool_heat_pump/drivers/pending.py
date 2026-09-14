@@ -89,9 +89,11 @@ class PendingWrites:
     def discard(self, name: str) -> None:
         self._items.pop(name, None)
 
-    def accepted(self, name: str) -> bool:
-        pend = self._items.get(name)
-        return bool(pend and pend.accepted)
+    def _put(self, state: HeatPumpState, name: str, value: Any) -> None:
+        if name not in _CONTAINER_FIELDS and hasattr(state, name):
+            setattr(state, name, value)
+        else:
+            state.extras[name] = value
 
     def overlay(self, state: HeatPumpState) -> None:
         now = time.monotonic()
@@ -118,8 +120,7 @@ class PendingWrites:
                         name, pend.value, pend.ttl_s, current,
                     )
                 continue
-            if name not in _CONTAINER_FIELDS and hasattr(state, name):
-                setattr(state, name, pend.value)
-            else:
-                state.extras[name] = pend.value
+            self._put(state, name, pend.value)
+            if pend.also:
+                self._put(state, pend.also, pend.value)
         state.pending = sorted(n for n, p in self._items.items() if not p.accepted)

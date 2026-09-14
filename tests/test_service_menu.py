@@ -102,7 +102,9 @@ def test_slave2_page_1181_seed_and_write() -> None:
 def test_hayward_power_also_write_on_slave2() -> None:
     profile = load_profile("hayward_pc1002")
     driver = Pc1002BusDriver(profile, lambda _f: None, WRITE_PATH_SLAVE2)
-    driver.slave2.seed_page(1001, [0] * 90)
+    page = [0] * 90
+    page[0] = 1
+    driver.slave2.seed_page(1001, page)
     asyncio.run(driver.set_power(True))
     assert driver.slave2.block_1001[10] == 1  # 1011
     assert driver.slave2.block_1001[13] == 1  # 1014

@@ -11,7 +11,7 @@ from typing import Any
 class HeatPumpState:
     available: bool = False
     power: bool = False
-    mode: str = "heat"  # cool | heat | auto
+    mode: str | None = None  # cool | heat | auto; None until page 1012 is known
     setpoint: float | None = None
     setpoint_heat: float | None = None
     setpoint_cool: float | None = None

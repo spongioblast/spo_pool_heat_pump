@@ -362,7 +362,7 @@ class PoolHeatPumpCard extends LitElement {
             ${s.dumpOnly ? "" : html`<button class="ib pw ${s.power ? "on" : ""} ${pend("power")}" title="Power"
               @click=${() => this.call("climate", s.power ? "turn_off" : "turn_on", {})}>${PW}</button>`}
           </div>
-          ${s.available ? "" : html`<div class="stale"><span><i></i>No data from heat pump for 8 s</span></div>`}
+          ${s.available ? "" : html`<div class="stale"><span><i></i>No recent data from the heat pump</span></div>`}
         </div>
       </ha-card>
       ${this._dialogOpen ? html`

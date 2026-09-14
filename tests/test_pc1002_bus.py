@@ -147,7 +147,7 @@ def test_selected_mode_comes_from_page_1001_not_broadcast_2012() -> None:
     """Broadcast 2012 is the running direction (never auto); page word 1012 is the selection."""
     driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send, "dtu_99")
     driver.handle_frame(first_broadcast())  # 2012 = 1 (heat) in the fixture
-    assert driver.state.mode == "heat"
+    assert driver.state.mode is None, "selected mode is unknown until page 1001"
     assert driver.state.values.get("active_mode") == "heat"
     page = [0] * 90
     page[11] = 2  # 1012 = auto selected on the panel
@@ -260,6 +260,8 @@ def test_set_setpoint_after_mode_cool_writes_cool_word() -> None:
     sent.clear()
     asyncio.run(driver.set_setpoint(27.0))
     assert [parse_frame(f).start for f in sent] == [1135]
+    driver.settings.put(1012, 0)
+    driver.settings.put(1135, 270)
     regs = dict(driver.state.raw)
     regs[2012] = 0
     regs[2013] = 270

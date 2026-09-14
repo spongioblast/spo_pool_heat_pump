@@ -38,6 +38,7 @@ from __future__ import annotations
 import time
 
 from ..modbus_rtu import RtuFrame, encode_fc03_reply, encode_fc16_reply
+from .settings import is_blank_menu_page
 
 FLAG_READ_1001 = 0x0004
 FLAG_READ_1091 = 0x0020  # timers in page 1091
@@ -156,9 +157,11 @@ class Slave2Responder:
         if any(serial):
             self.block_3001[0:10] = serial[:10]
 
-    def seed_page(self, start: int, values: list[int]) -> None:
+    def seed_page(self, start: int, values: list[int]) -> bool:
         if start not in _PAGES:
-            return
+            return False
+        if is_blank_menu_page(start, values):
+            return False
         self._blocks[start] = (list(values) + [0] * 90)[:90]
         self._seeded[start] = True
         # The board echoing our value back means it took it.
@@ -168,6 +171,7 @@ class Slave2Responder:
                 if self._blocks[start][register - start] == value:
                     del self._overlay[register]
         self._drop_stale_flags()
+        return True
 
     def page_seeded(self, register: int) -> bool:
         start = _page_of(register)

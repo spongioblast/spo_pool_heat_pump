@@ -172,12 +172,15 @@ class PollMasterDriver(HeatPumpDriver):
         spec = lookup_write_spec(self.profile, name)
         register, encoded = self.encoded_write(name, value)
         self.pending.mark(name, encoded)
+        accepted = False
         try:
             await self._emit_write(spec, register, encoded)
+            accepted = True
             for extra in self.extra_write_addrs(register):
                 await self._emit_write(spec, extra, encoded)
         except Exception:
-            self.pending.discard(name)
+            if not accepted:
+                self.pending.discard(name)
             raise
         finally:
             if self._regs or self._blocks:

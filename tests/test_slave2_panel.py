@@ -22,7 +22,9 @@ from spo_pool_heat_pump.drivers.slave2 import (
     FLAG_HEAT_SP,
     FLAG_READ_1001,
     FLAG_READ_1091,
+    FLAG_SETPOINT,
     OVERLAY_TTL_S,
+    SettingsUnseeded,
 )
 from spo_pool_heat_pump.modbus_rtu import (
     encode_fc03,
@@ -439,3 +441,74 @@ def test_setpoint_accepted_but_2013_never_follows_lets_go_quietly(monkeypatch, c
         driver.handle_frame(broadcast(r2013=340))
     assert driver.state.setpoint == 34.0
     assert "not confirmed" not in caplog.text
+
+
+def test_write_register_setpoint_on_slave2_writes_1136() -> None:
+    """Settings / WS / service write_register('setpoint') must not hit 1013."""
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    asyncio.run(driver.write_register("setpoint", 32.0))
+    assert driver.state.setpoint == 32.0
+    assert driver.state.setpoint_heat == 32.0
+    assert driver.state.pending == ["setpoint"]
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll is not None and poll.values[10] == FLAG_SETPOINT
+    page = parse_frame(driver.handle_frame(encode_fc03(2, 1091, 90)))
+    assert page is not None and page.values[1136 - 1091] == 320
+
+
+def test_write_register_setpoint_heat_overlays_climate_target() -> None:
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    asyncio.run(driver.write_register("setpoint_heat", 32.0))
+    assert driver.state.setpoint == 32.0
+    assert driver.state.setpoint_heat == 32.0
+    driver.handle_frame(broadcast(r2013=340))
+    assert driver.state.setpoint == 32.0
+    assert driver.state.setpoint_heat == 32.0
+
+
+def test_set_mode_drops_pending_setpoint() -> None:
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(340)))
+    driver.handle_frame(broadcast(r2013=340))
+    asyncio.run(driver.set_setpoint(32.0))
+    driver.handle_frame(encode_fc16(2, 1091, _page_1091(320)))
+    assert driver.state.setpoint == 32.0
+    asyncio.run(driver.set_mode("auto"))
+    driver.handle_frame(broadcast(r2013=300))
+    assert driver.state.setpoint == 30.0
+    assert "setpoint" not in driver.pending
+
+
+def test_slave2_unseeded_write_does_not_fc03_the_display() -> None:
+    sent: list[bytes] = []
+
+    async def send(frame: bytes) -> None:
+        sent.append(frame)
+
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, WRITE_PATH_SLAVE2)
+    driver.page_seed_wait_s = 0.01
+    with pytest.raises(SettingsUnseeded):
+        asyncio.run(driver.set_mode("heat"))
+    assert sent == []
+
+
+def test_zero_menu_page_is_rejected() -> None:
+    from spo_pool_heat_pump.drivers.settings import SettingsCache
+
+    driver, _ = make_driver()
+    assert driver.slave2.seed_page(1001, [0] * 90) is False
+    assert driver.slave2.seeded_1001 is False
+    cache = SettingsCache()
+    assert cache.absorb_fc16(encode_fc16(2, 1001, [0] * 90)) is False
+    assert cache.regs == {}
+    page = [0] * 90
+    page[11] = 1
+    assert driver.slave2.seed_page(1001, page) is True
+    assert driver.slave2.seeded_1001 is True

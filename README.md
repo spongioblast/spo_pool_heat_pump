@@ -1,10 +1,34 @@
 # SPO Pool Heat Pump (Modbus RTU over RS-485 via USR-DR164)
 
-Home Assistant custom integration **SPO Pool Heat Pump (Modbus RTU over RS-485 via USR-DR164)** — inverter pool heat pumps that speak **Modbus RTU on RS-485** (MIDA Cosma / PC1002 verified; Hayward, PHNIX Mini, Fairland community profiles). Transport is a **USR-DR164** in transparent TCP Server mode. This is the Modbus client; do not add Home Assistant’s core Modbus integration.
+Home Assistant custom integration **SPO Pool Heat Pump** for inverter pool heat pumps that speak **Modbus RTU on RS-485**. A live **MIDA Cosma** (PC1002) is verified; the other shipped profiles still need a live test. Transport is a **USR-DR164** in transparent TCP Server mode. This is the Modbus client; do not add Home Assistant’s core Modbus integration.
 
 Requires Home Assistant 2026.6.0 or later.
 
 The integration creates a Device with native `climate`, sensors, switches and timer numbers. Service-menu values are not Home Assistant entities — they live in the card Settings dialog (and an optional standalone settings card). A bundled Lovelace card draws the water path (Circuit or Section — pick one in the card editor).
+
+This file is the user guide. Protocol, write path, DR164 timing, tests, and the simulator: [docs/development.md](docs/development.md). Adding a profile: [docs/profiles.md](docs/profiles.md).
+
+## Which heat pumps
+
+AquaTemp on the phone does **not** prove this wire map. The outdoor board has to speak one of the RS-485 patterns below.
+
+**Works (verified).** **MIDA Cosma** 13 / 20 / 28 / 35 — PHNIX PC1002 board. Home Assistant talks as a second display. Reads and everyday writes (mode, heat setpoint, quiet; the same path also does power, timers, and the other modes) were measured on a live Cosma. Same profile if the case says **Azuro** or **Mountfield** and setup detects that bus.
+
+**Same bus — needs a live test.** **Hayward**, **Oasis**, **Warmpool**, **ECPI**, **irriPool**. Oasis publishes the PC1002 inverter manual; the others are the Hayward ESPHome bus. Pick this when setup heard the Cosma-style broadcast but did not pick Cosma. Not run on this integration.
+
+**Shipped maps — untested here.** Different talk or different registers. Leave **Allow changing service settings** off.
+
+| Case / badges | Profile | What is missing |
+| --- | --- | --- |
+| PHNIX Mini / SuperMini / SpecialLine, Thermotec | `phnix_mini_pc1002` | Same-looking registers; bits and setpoints differ from Cosma. |
+| Fairland / Norsup CN13 | `fairland_pc1004_cn13` | Polled unit, slave **50** (menu H37). Community list; no dump here. |
+| Fairland IPS Pro / InverX / IPHCR | `fairland_ips_pro_coils` | Polled unit, slave **1**, old coil map. Community YAML; no dump here. |
+
+**Not this wire.** Hayward EnergyLine Pro / Trevium / Majestic / CPAC, Poolex Dreamline (NET) or Jetline, Welldana Aquagreen / EasyLine, PHNIX MegaLine, MIDA Joy / Poolsana InverPro, Fairland iGarden / Tuya SmartPool. Different bus or cloud only.
+
+**Unknown.** Pick **Unknown heat pump — dump only** and capture from the card Settings. That records RS-485 bytes so a profile can be added later. It does not decode or write.
+
+Badge → profile table: [docs/profiles.md](docs/profiles.md).
 
 ## What it looks like
 
@@ -47,8 +71,6 @@ Then wire the DR164 (next three sections) and **Settings → Devices & services 
 
 Copy **only** `custom_components/spo_pool_heat_pump` into `<config>/custom_components/` and restart. Then add the integration the same way. Do not copy `tools/`, `tests/`, `ha-docker/`, or `card-src/` — HACS does not install those either.
 
-Profile-author notes: [docs/profiles.md](docs/profiles.md).
-
 ## 1. Wire the DR164
 
 The factory WiFi / DTU port already carries all four pins the DR164 needs — **+**, **A**, **B**, **G** — so the DR164 runs in parallel on that same port and takes its power from the pump's 12 V rail. No separate PSU. Four wires, straight across, one per pin. Do not cut the panel cable.
@@ -66,7 +88,7 @@ The factory WiFi / DTU port already carries all four pins the DR164 needs — **
 
 Swap A and B if every frame fails CRC. The DR164 accepts 5–36 V, so the pump's 12 V is in range.
 
-A factory WiFi / DTU module can stay plugged in or not; the default write path does not use it. Only the opt-in **WiFi module (slave 99)** path depends on one being present.
+A factory WiFi / DTU module can stay plugged in or not. The default write path does not use it.
 
 ## 2. Add the DR164 to the network
 
@@ -82,15 +104,37 @@ Home Assistant and the DR164 must be on the same LAN. One TCP client only — do
 
 On the DR164 web UI (save and restart after these pages):
 
-1. **Serial Setting:** **9600 8N1**, CTSRTS Disable, Pack Interval **20** (ms — leave the factory value; at 10 this firmware, V1.0.15, flushes the first 16 bytes of every frame on their own and the rest ~185 ms later, which cut the 189-byte broadcast into two halves 94 % of the time on the live bus), Pack Size **1400**, Com Heart **OFF**, ModBUS Enabled **OFF**.
+1. **Serial Setting:** **9600 8N1**, CTSRTS Disable, Pack Interval **20** (leave the factory value — do not set 10), Pack Size **1400**, Com Heart **OFF**, ModBUS Enabled **OFF**.
 2. **Net Setting → Socket A:** **TCP-Server**, Port **8899**, Net heart **OFF**, Reg Set **OFF**. Not Modbus gateway, MQTT, HTTP or PUSR cloud.
-3. **Event off (AT command only — there is no web switch).** With Event on the DR164 writes ASCII `+EVENT=SOCKA_ON` / `SOCKA_OFF` onto the RS-485 bus on every TCP connect/disconnect (seen on the USB tap 2026-09-14). Turn it off from the LAN with the module's network-AT channel: from the same UDP socket send `www.usr.cn` to the DR164's IP, port **48899** (it answers `IP,MAC,USR-DR164`), then `+ok` (no line ending — without this acknowledgement the module ignores every command), then within 30 s `AT+EVENT=off\r\n` and `AT+Z\r\n` to restart. `AT+EVENT\r\n` reads it back (`+ok=off`); `AT+WSLQ\r\n` shows the WiFi signal — below ~50 % expect missed deadlines. Any UDP tool works (Packet Sender, a ten-line Python script). Serial `+++`/`a` AT entry is not usable here — the bus is never quiet. Verified on firmware V1.0.15 / web 1.0.08.
+3. **Event off** (there is no web switch). From any UDP tool on the LAN, to the DR164 IP port **48899**:
+   1. Send `www.usr.cn` (it answers `IP,MAC,USR-DR164`).
+   2. Send `+ok` (no line ending).
+   3. Within 30 s send `AT+EVENT=off\r\n`, then `AT+Z\r\n`.
+   Check with `AT+EVENT\r\n` (`+ok=off`).
 
-Then **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = the reserved DR164 IP, port `8899`. Detection listens ~5 s and pre-selects a profile. Keep it unless the name on the case is a different family. Compatible badges are on each option (Oasis / Warmpool → Hayward; Azuro / Mountfield → MIDA Cosma; SuperMini → PHNIX Mini; slave 50 → Fairland CN13; IPS Pro / InverX → coil map). AquaTemp on the phone does not prove this wire map. Write path defaults to **Second panel (slave 2)** — Home Assistant answers the board like a second display and hands it changed settings the same way the wired display does; it needs no WiFi module (see [Writes](#writes)). Detection also reports whether it *heard* the WiFi module (slave 99); that is informational only. **WiFi module (slave 99)** is an opt-in path that addresses the factory module; on this bus it is mode-only (see [Writes](#writes)). If the bus does not match a shipped map, pick **Unknown heat pump — dump only** and capture a bus dump from the card Settings. Fairland CN13 / IPS Pro: confirm **Modbus slave (H37)** (CN13 default 50, IPS Pro usually 1). Leave **Allow changing service settings** off (see below).
+   Or from this repository (Python 3, nothing to install): `python tools/dr164_event_off.py 192.168.x.x` — on Windows, `tools\dr164_event_off.cmd 192.168.x.x`. No IP lists modules that answer a broadcast. `--check` queries only.
 
-Serial USB and Modbus-TCP gateways are not available in v1.
+Then **Settings → Devices & services → Add integration → SPO Pool Heat Pump**. Host = the reserved DR164 IP, port `8899`. Setup listens a few seconds and pre-selects a profile — keep it unless [Which heat pumps](#which-heat-pumps) says the name on the case is a different family.
 
-If the reserved IP or port changes later, use **Reconfigure** (host and port only). Profile, write path, and H37 stay under **Configure**. Do not add Home Assistant’s core **Modbus** integration (see [Why not Home Assistant’s Modbus integration?](#why-not-home-assistants-modbus-integration)).
+Leave **Write path** on **Second panel (slave 2)**. It works with or without the factory WiFi module. **WiFi module (slave 99)** only changes mode on this bus. **Panel address 1** is unproven. If the bus does not match a shipped map, pick **Unknown heat pump — dump only**. Fairland CN13 / IPS Pro: confirm **Modbus slave (H37)** (CN13 default 50, IPS Pro usually 1). Leave **Allow changing service settings** off.
+
+If the reserved IP or port changes later, use **Reconfigure** (host and port only). Profile, write path, and H37 stay under **Configure**. Do not add Home Assistant’s core **Modbus** integration or set the DR164 to Modbus gateway.
+
+## Options
+
+
+| Parameter                       | Where             | What it is                                                                 |
+| ------------------------------- | ----------------- | -------------------------------------------------------------------------- |
+| Host                            | Add / Reconfigure | Reserved LAN IP of the USR-DR164                                           |
+| Port                            | Add / Reconfigure | Socket A port (factory `8899`)                                             |
+| Profile                         | Add / Configure   | How the unit talks (Cosma, Mini, Hayward, CN13, IPS Pro, or dump only)     |
+| Write path                      | Add / Configure   | Keep **Second panel (slave 2)**. Slave 99 is mode-only on this bus         |
+| Modbus slave (H37)              | Add / Configure   | Fairland poll address. CN13 default 50, IPS Pro usually 1                  |
+| Poll interval                   | Add / Configure   | Seconds between Fairland polls. Cosma / Mini ignore this                   |
+| Allow changing service settings | Add / Configure   | Off by default. Required before H/F/D writes                               |
+| Use manual flow for COP         | Configure         | Local COP from flow × ΔT × power; not written to the bus                   |
+| Water flow (m³/h)               | Configure         | Circulation used for that COP. `0` means unused                            |
+
 
 ## Dashboard card
 
@@ -103,11 +147,13 @@ settings: true        # sliders icon opens Settings; false hides it
 # parameters_groups: [H, F]   # optional: only these service-menu/status groups
 ```
 
-The sliders icon (next to Quiet and Power) opens Settings. That dialog has every profile register and service-menu value (194 bus rows on the Cosma, 196 in the dialog with the two local COP rows), including timers, plus local **Use manual flow for COP** / **Water flow** (m³/h). Safe writes (power, mode, setpoint, timers, COP flow) edit inline. H/F/D service-menu rows stay locked until the option below is on. Pin the same catalog with `custom:spo-pool-heat-pump-settings-card` if you want it always visible.
+The sliders icon (next to Quiet and Power) opens Settings. Safe writes (power, mode, setpoint, timers, COP flow) edit inline. H/F/D service-menu rows stay locked until **Allow changing service settings** is on. Pin the same catalog with `custom:spo-pool-heat-pump-settings-card` if you want it always visible.
 
-COP is drawn under the unit only when it is non-zero: the controller register (2040) if the board publishes one, or a calculated value from the manual flow, ΔT, and electrical power. ΔT stays on the left.
+The card shows the new value immediately and pulses until the pump confirms it. If nothing comes back, it reverts (about 12 s; mode and timers wait about 20 s). A few seconds of unavailable after a change is the board committing — wait. Do not re-add the integration.
 
-The card is registered automatically via extra JS. After install, **restart Home Assistant, then reload the browser tab** (F5, or open a new tab). Extra modules are part of `index.html`, so a tab that was open before the restart keeps running without the card until the page itself is reloaded — unlike HACS resource cards, which the dashboard fetches on first open. Do not add a Lovelace resource for the card — a second load duplicates it in Add to dashboard and can leave the view on Configuration error. The panel clock (3015–3017) is read-only — no DTU clock write has been observed.
+COP is drawn under the unit only when it is non-zero: a value the board publishes, or a calculated value from the manual flow, ΔT, and electrical power. ΔT stays on the left.
+
+The card is registered automatically. After install, **restart Home Assistant, then reload the browser tab** (F5, or open a new tab). Do not add a Lovelace resource for the card — a second load duplicates it in Add to dashboard and can leave the view on Configuration error.
 
 If **Add to dashboard** search for “SPO Pool Heat Pump” shows only Manual YAML:
 
@@ -117,8 +163,6 @@ If **Add to dashboard** search for “SPO Pool Heat Pump” shows only Manual YA
 4. Do not add a Dashboard resource.
 
 Until the extra module runs, you can still add the card in YAML:
-
-Example dashboard:
 
 ```yaml
 views:
@@ -140,65 +184,6 @@ views:
           - sensor.pool_heat_pump_outlet
           - sensor.pool_heat_pump_energy_total
 ```
-
-
-
-## Writes
-
-On the PC1002 bus the **main board is the Modbus master**. Every 1.7 s cycle it polls the wired display (slave 1), an optional second display (slave 2) and slave 66 for their 3001×30 status page, then broadcasts the 2001×90 status map. It pushes the settings pages 1001 / 1091 / 1181 and 3001×11 to every slave that answers and expects the normal FC16 echo as an acknowledgement. A display changes a setting by raising a bit in word **3011** of its 3001 reply that says *what* changed (`0x0004` → page 1001: power, mode, quiet, timers; `0x0040` → the setpoints 1135–1137 in page 1091; `0x0020` → the timer words 1150–1159 in page 1091); the board reads that page back ~0.35 s later, applies it, re-pushes it to all slaves and clears the flag. The bit has to be the right one: a setpoint flagged as `0x0020` made the board re-read the wired display's page instead and keep the display's copy. Measured on the wired display in the recorded dumps and on the live bus (2026-09-14).
-
-Two words are easy to get wrong. Broadcast word **2012 is the direction the board is running** (heat or cool) — it never reports auto; the selected mode is word **1012** in page 1001, so the entity reads its mode from the page and exposes 2012 as *Running as* in Settings. The working setpoint is the **per-mode word** 1135 (cool) / 1136 (heat) / 1137 (auto), which the board mirrors into broadcast 2013 and swaps itself on a mode change; word 1013 in page 1001 is panel-owned and lags 2013 for minutes, so it is neither written nor trusted.
-
-Default writes therefore go through the **Second panel (slave 2)** path: Home Assistant answers the slave 2 polls with the serial, acknowledges the board's page pushes (which also seed the page copies — no extra reads needed), and when you change something it overlays the register in its copy of the page, raises the same 3011 bit the display would, and lets the board read it back. The bit drops as soon as the page is served, exactly like the display does (a bit left up makes the board re-read the page every cycle and commit nothing). The board's 3001 sync that follows every read by ~0.85 s tells whether the read got through: `0` on every success, and an echo of our bit when our reply did not make it — the board then falls back to the wired display's page. On that echo Home Assistant raises the bit again at the next poll, at most twice per write (about 1 in 12 writes needed it on the live bus). As a panel, Home Assistant never reads the display's pages on its own after the initial seed; the board pushes every changed page to it. Without the acknowledgements the board retries each push twice per cycle forever and ignores the panel's flag — that is how an earlier build broke writes after the first one. Writes to page 1181 have no known flag bit and are not delivered.
-
-**Deadline.** The board gives up on a slave-2 page read after ~340 ms of silence (measured 0.326–0.356 s on page 1001 and 1091). The wired display's first byte lands at 201–218 ms. Through a DR164 the typical first byte is 230–234 ms — about 30 ms of pack + LAN on top of the display, still ~100 ms of slack. A WiFi retransmit on a through-the-house link can push the reply to 550–800 ms; the board has already echoed the flag and then re-reads the wired display. Home Assistant answers a request in 0–1 ms once it sees it, emits a complete CRC-valid frame without waiting another 20 ms, and will not transmit a solicited reply that is already more than 200 ms old (a late 185-byte answer collides with the board's next frame). `TCP_NODELAY` is on. Remaining spikes are the radio; an Ethernet RS-485 gateway (same transparent TCP Server mode) or USB-on-the-HA-host is the durable fix if misses persist.
-
-**WiFi module (slave 99)** sends one FC16 frame addressed to the factory module. On this bus, `1012` (mode) is forwarded and the board adopts it in ~1.5 s; `1013` (setpoint) and `1076` (quiet) are acked by the module and ignored by the board. With no module on the bus nobody answers. **Panel address 1** is unproven. Both stay selectable under Configure; leave the default on slave 2.
-
-**Responsiveness.** A slave 2 write is picked up at the board's next slave 2 poll, read back ~0.35 s later and shows in the following broadcast — a panel change reached the broadcast after a median 3.1 s and at most ~4 s in the recorded dumps. So Home Assistant applies writes optimistically: the entity shows the new value immediately and lists it in the climate attribute `pending_writes`; the card pulses the affected control while it is in flight. When the broadcast confirms the value the pulse stops. If the pump has not echoed it after 12 s the value reverts to what the device reports and a warning is logged (`write silent=True not confirmed …`) — a rejected write is never left on screen. Mode and timers only exist in a settings page, which the board pushes back to the panels one round after applying it (8–10 s measured), so those get 20 s before they revert. The setpoint is written into page 1091 but shown from broadcast word 2013, and the two do not move together: on the live bus the board pushed the page back with the new value 8.6 s after the write while 2013 kept the old value for 21 s (its post-commit pause stretches the broadcast gap). So a setpoint counts as accepted as soon as either source carries it — the pulse stops at the page push and the new value stays on screen until 2013 follows, instead of falling back to the old number for a few seconds in between. The entity stays available through the board's own ~6 s silence after it adopts a change (broadcasts can be 14 s apart); it is marked unavailable only after 15 s with no pending write. A silent bus also makes Home Assistant drop and re-open the TCP socket every 15 s: after a DR164 reboot or a WiFi dropout the old socket is half-open — the module has forgotten it, no FIN or RST ever arrives, and slave-2 writes only touch the socket when the board polls — so without that redial the entity would stay unavailable indefinitely (seen 2026-09-14: 7 min and counting after a module restart). This applies to the card, Core tiles, the phone app and automations alike. Polled units (Fairland) work the same way; there the value is confirmed by the next poll cycle and the timeout scales with the poll interval (2 × interval + 4 s).
-
-Fairland CN13 / IPS Pro are polled. Set **Modbus slave (H37)** if the unit is not on the profile default (CN13 50, IPS Pro 1).
-
-
-| Parameter                       | Where             | What it is                                                                 |
-| ------------------------------- | ----------------- | -------------------------------------------------------------------------- |
-| Host                            | Add / Reconfigure | Reserved LAN IP of the USR-DR164                                           |
-| Port                            | Add / Reconfigure | Socket A port (factory `8899`)                                             |
-| Profile                         | Add / Configure   | How the unit talks (Cosma, Mini, Hayward, CN13, IPS Pro, or dump only)     |
-| Write path                      | Add / Configure   | Default `slave2`. `dtu_99` is opt-in and mode-only on this bus             |
-| Modbus slave (H37)              | Add / Configure   | Fairland poll address. CN13 default 50, IPS Pro usually 1                  |
-| Poll interval                   | Add / Configure   | Seconds between Fairland polls. Cosma / Mini broadcast and ignore this     |
-| Allow changing service settings | Add / Configure   | Off by default. Required before H/F/D writes                               |
-| Use manual flow for COP         | Configure         | Local COP from flow × ΔT × power; not written to the bus                   |
-| Water flow (m³/h)               | Configure         | Circulation used for that COP. `0` means unused                            |
-
-
-
-
-## Development
-
-This repository also has a state-model simulator, pytest, card source, and a local Docker Home Assistant. They are **not** part of the HACS install.
-
-```bash
-python -m tools.simulator --host 0.0.0.0 --port 8899 --profile mida_cosma_pc1002
-```
-
-Tests (no Home Assistant required for most of the suite):
-
-```bash
-pip install -r requirements_test.txt
-pytest
-```
-
-HA-dependent tests skip unless `homeassistant` is installed. Dump-replay and Cosma-notebook tests skip unless the sibling lab folder `../protocol-analysis/` is present — that folder is not in this repo and is not published.
-
-Rebuild the Lovelace card after editing `card-src/`:
-
-```bash
-cd card-src && npm ci && npm run build
-```
-
-Docker: [ha-docker/README.md](ha-docker/README.md). Dump replay (wire-fidelity, not the state model) is lab-only.
 
 ## Settings
 
@@ -234,7 +219,7 @@ The **?** on that tab is the full checklist. In short:
 2. One action at a time; wait a few seconds.
 3. Use the heat-pump panel **and** the phone app if both exist. Leave the factory WiFi / DTU plugged in.
 4. Power, Heat/Cool/Auto and each mode’s setpoint, quiet/timers, every on-screen menu. Let the unit actually run.
-5. After each change, screenshot the app or photo the panel (menu name and value). Name files with clock time or the dump note.
+5. After each change, screenshot the app or photo the panel (menu name and the value). Name files with clock time or the dump note.
 6. Download the `.log` and keep the pictures with it.
 
 Do not change H/F/D service values unless you know the OEM numbers.
@@ -256,8 +241,6 @@ These are integration actions (`spo_pool_heat_pump.*`). The card Settings dialog
 | `entry_id` / `device_id` | no       | Which heat pump, if more than one                           |
 
 
-
-
 ### Stop bus dump
 
 `spo_pool_heat_pump.stop_dump` closes the running capture.
@@ -268,18 +251,14 @@ These are integration actions (`spo_pool_heat_pump.*`). The card Settings dialog
 | `entry_id` / `device_id` | no       | Which heat pump, if more than one |
 
 
-
-
 ### Refresh service menu
 
-`spo_pool_heat_pump.refresh_service_menu` does a one-shot read of the service-menu pages (1001 / 1091 / 1181). Needed on slave-2 setups before those rows populate.
+`spo_pool_heat_pump.refresh_service_menu` re-reads the service-menu pages. Use it if those rows are empty after setup.
 
 
 | Field                    | Required | Description                       |
 | ------------------------ | -------- | --------------------------------- |
 | `entry_id` / `device_id` | no       | Which heat pump, if more than one |
-
-
 
 
 ### Set service setting
@@ -294,18 +273,6 @@ These are integration actions (`spo_pool_heat_pump.*`). The card Settings dialog
 | `entry_id` / `device_id` | no       | Which heat pump, if more than one      |
 
 
-
-
-## Why not Home Assistant’s Modbus integration?
-
-The heat pump **is** Modbus RTU. We still do not use Core’s **Modbus** integration (and do not set the DR164 to **Modbus gateway**).
-
-Core Modbus — and gateway mode on the DR164 — assume Home Assistant is the only master: poll a slave, get a reply. On Cosma / PC1002 the **outdoor board already masters** the line: it polls the display panels and **broadcasts** the 2001×90 map; this integration **listens** and **answers as the second panel (slave 2)** when the board polls it. A second poller on the same RS-485 would collide with that.
-
-The DR164 must stay a **transparent TCP byte pipe** (raw RTU, 20 ms idle framing). Core Modbus-over-TCP wants MBAP / gateway framing. This client also drops non-CRC noise (heartbeat) and waits for a quiet gap before TX.
-
-Fairland CN13 / IPS Pro *are* polled, but still through this client so one integration, one socket, and the same write / dump / card path. Do not add both.
-
 ## Remove the integration
 
 **Settings → Devices & services → SPO Pool Heat Pump → Delete.** The device and its entities go with the entry.
@@ -315,19 +282,17 @@ Files in `config/spo_pool_heat_pump_dumps/` are not deleted. Remove those captur
 ## Troubleshooting
 
 
-| Symptom                                | What to try                                                                                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Cannot connect / add-integration fails | Reserved IP, Socket A = TCP Server on 8899, pump powered. Then swap RS-485 A/B                                          |
-| Every frame fails CRC / no broadcast   | Swap A and B. Confirm UART 9600 8N1 and idle 20 ms                                                                      |
-| Already configured                     | This DR164 (or this serial) already has an entry. Open that one, or **Reconfigure** its host/port                       |
-| Entities unavailable                   | One HA client only on port 8899. If the IP changed, **Reconfigure**. Cosma needs the 2001 broadcast; Fairland needs H37. A ~6 s pause after a write is the board committing — wait, do not re-add the integration |
-| Dump folder full                       | `config/spo_pool_heat_pump_dumps/` is over ~200 MB. Delete old `.log` / `.bin` from the card dump list                  |
-| Writes pulse, then snap back after 12 s | Log shows `write … not confirmed`. Check the write path under Configure is **Second panel (slave 2)**; slave 99 is mode-only on this bus. Mode/timers wait 20 s. Through-the-house WiFi can miss the board's 340 ms page-read deadline — `AT+EVENT=off`, Pack Interval back at 20, then Ethernet if it persists. Dump-only never writes |
-| Service-menu write refused             | Enable **Allow changing service settings** under Configure                                                              |
-| Core Modbus / DR164 “Modbus gateway”   | Do not add those. See [Why not Home Assistant’s Modbus integration?](#why-not-home-assistants-modbus-integration)       |
-| Add to dashboard only shows Manual YAML | Reload the tab after the restart. Confirm the card JS URL is 200. Do not add a Lovelace resource. YAML add still works. |
-
-
+| Symptom                                 | What to try                                                                                                      |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Cannot connect / add-integration fails  | Reserved IP, Socket A = TCP Server on 8899, pump powered. Then swap RS-485 A/B                                   |
+| Every frame fails CRC / no data         | Swap A and B. Confirm UART 9600 8N1 and Pack Interval 20                                                         |
+| Already configured                      | This DR164 already has an entry. Open that one, or **Reconfigure** its host/port                                 |
+| Entities unavailable                    | One HA client only on port 8899. If the IP changed, **Reconfigure**. A short pause after a write is normal — wait |
+| Dump folder full                        | `config/spo_pool_heat_pump_dumps/` is over ~200 MB. Delete old files from the card dump list                     |
+| Writes pulse, then snap back            | Write path must be **Second panel (slave 2)**. Slave 99 is mode-only. Dump-only never writes. Weak WiFi: Event off, Pack 20, Ethernet if it persists |
+| Service-menu write refused              | Enable **Allow changing service settings** under Configure                                                       |
+| Core Modbus / DR164 “Modbus gateway”    | Do not add those                                                                                                 |
+| Add to dashboard only shows Manual YAML | Reload the tab after the restart. Confirm the card JS URL is 200. Do not add a Lovelace resource                  |
 
 
 ## License

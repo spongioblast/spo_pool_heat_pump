@@ -132,6 +132,7 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         if self.update_interval is not None and hasattr(self.driver, "set_poll_interval"):
             self.driver.set_poll_interval(self.update_interval.total_seconds())
         self._stale_handle: asyncio.TimerHandle | None = None
+        self._last_frame_at: float | None = None
         self._settings_refresh_once = False
         self.reload_fingerprint = reload_option_fingerprint(entry.data, entry.options)
         self.force_seq = 0
@@ -285,6 +286,8 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         self.hass.async_create_task(self._async_refresh_settings_once())
 
     async def _async_refresh_settings_once(self) -> None:
+        if getattr(self.driver, "write_path", None) == WRITE_PATH_SLAVE2:
+            return
         try:
             await self.driver.refresh_settings()
         except Exception:  # noqa: BLE001
@@ -312,16 +315,23 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         if asyncio.iscoroutine(result):
             self._create_task(result, "spo_pool_heat_pump_stale_reconnect")
 
-    def _mark_stale(self) -> None:
-        """No fresh frame for STALE_SECONDS — reconnect, and mark unavailable.
+    def _note_frame(self) -> None:
+        self._last_frame_at = time.monotonic()
 
-        Push profiles wait for the 2001 broadcast; poll profiles wait for a poll cycle.
-        The board itself pauses ~6 s after adopting a change; if a write is still
-        in flight, keep showing the optimistic value and wait another window.
-        The timer is re-armed either way so a bus that stays silent gets a
-        reconnect attempt every window.
+    def _bus_is_silent(self) -> bool:
+        last = self._last_frame_at
+        return last is None or (time.monotonic() - last) >= STALE_SECONDS
+
+    def _mark_stale(self) -> None:
+        """No fresh *broadcast* for STALE_SECONDS — maybe reconnect, maybe unavailable.
+
+        Availability stays tied to the 2001 broadcast (or a poll cycle). The
+        reconnect kick is keyed to the last *frame* of any kind: board polls and
+        unchanged page pushes keep the TCP socket up through the board's post-commit
+        pause, when broadcasts can be 20 s apart while the bus is fully alive.
         """
-        self._kick_transport()
+        if self._bus_is_silent():
+            self._kick_transport()
         self._arm_stale()
         if self._has_pending_writes():
             return
@@ -373,6 +383,10 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
             _LOGGER.debug("flag settings refresh failed", exc_info=True)
 
     async def async_on_frame(self, frame: bytes) -> None:
+        from .modbus_rtu import parse_frame
+
+        if parse_frame(frame) is not None:
+            self._note_frame()
         reply = self.driver.handle_frame(frame)
         if reply:
             await self.client.send(reply, solicited=True)

@@ -39,10 +39,12 @@ def apply_map(
     def raw_for(spec: dict[str, Any]) -> int | None:
         if spec.get("prefer") == "settings":
             # The settings page holds the selected value; the broadcast word is the
-            # board's derived view (2012 = active heat/cool, never auto).
+            # board's derived view (2012 = active heat/cool, never auto). Do not
+            # fall through to `reg` — that would label auto as heat until 1001 lands.
             write = spec.get("write")
             if write is not None and int(write) in settings:
                 return settings[int(write)]
+            return None
         if "reg" in spec and spec["reg"] in regs:
             return regs[spec["reg"]]
         if "block" in spec:
@@ -116,5 +118,7 @@ def apply_map(
             continue
         state.extras[key] = decode_value(spec, raw, enums)
 
-    state.hz_max = resolve_hz_max(profile, state.mode, state.extras)
+    state.hz_max = resolve_hz_max(
+        profile, state.mode or state.get("active_mode") or "heat", state.extras
+    )
     return state

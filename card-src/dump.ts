@@ -184,7 +184,7 @@ export function renderDumpPanel(args: {
         <div class="dump-help">
           <p>This records the raw RS-485 bytes Home Assistant sees on the DR164 — the same format we used to map the Cosma. A later dump is how a new model or an unknown register gets decoded.</p>
           <p><strong>Start the capture first</strong>, then act. Write in the note what you are about to do. One action at a time; wait a few seconds so the frames stay separable.</p>
-          <p>Use the <strong>heat-pump panel and the phone app</strong> if both exist. They write different registers (panel vs DTU slave 99). Leave the factory WiFi / DTU plugged in.</p>
+          <p>Use the <strong>heat-pump panel and the phone app</strong> if both exist. They write different registers (panel vs DTU slave 99). On this bus the WiFi module is <strong>mode-only</strong> — setpoint and quiet from the app are ignored. Leave the factory WiFi / DTU plugged in for the dump.</p>
           <p><strong>Screenshot the phone app</strong> after each change (the page you just used), or <strong>photo the heat-pump display</strong> if there is no app or the change was on the panel. The picture should show the menu name and the value (H03, target 28 °C, Quiet on). Name files with clock time or the dump note so they line up with timestamps in the <code>.log</code>. One photo per action. Attach those images with the downloaded log when asking for a new profile or an unknown register.</p>
           <p>Work through everything that should appear on the wire:</p>
           <ul>

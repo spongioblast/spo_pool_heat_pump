@@ -136,5 +136,5 @@
       "mode_cool": "63 10 03 F4 00 01 02 00 00 31 46"
     }
   },
-  "notes": "Command 1011/1012 match the MIDA Cosma map. 2019 bit order and setpoints differ — community. Write path defaults to DTU 99; slave 2 is opt-in for units with no WiFi module."
+  "notes": "Command 1011/1012 match the MIDA Cosma map. 2019 bit order and setpoints differ — community. Write path defaults to second panel (slave 2); dtu_99 is opt-in and mode-only. Slave-2 working setpoint (1135–1137) is unverified on Mini — climate writes 1013 until a dump proves the per-mode words."
 }

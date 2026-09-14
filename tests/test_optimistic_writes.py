@@ -6,6 +6,7 @@ import asyncio
 
 import pytest
 from spo_pool_heat_pump.drivers import pending as pending_mod
+from spo_pool_heat_pump.drivers.decode import apply_map
 from spo_pool_heat_pump.drivers.pc1002_bus import PENDING_TTL_S, Pc1002BusDriver
 from spo_pool_heat_pump.drivers.poll_master import PollMasterDriver, pending_ttl_for_interval
 from spo_pool_heat_pump.modbus_rtu import encode_fc03_reply, encode_fc16, parse_frame
@@ -93,7 +94,8 @@ def test_page_only_values_get_the_longer_ttl(monkeypatch: pytest.MonkeyPatch) ->
 
     now[0] += PAGE_TTL_S - PENDING_TTL_S
     driver.handle_frame(broadcast())
-    assert driver.state.mode == "heat", "device value wins after the page TTL"
+    assert driver.state.mode is None, "without page 1012 the selected mode is unknown"
+    assert driver.state.get("active_mode") == "heat"
     assert driver.state.pending == []
 
 
@@ -207,6 +209,36 @@ def test_poll_master_ttl_scales_with_interval() -> None:
     assert driver.pending.ttl_s == 24.0  # profile default poll_interval 10
     driver.set_poll_interval(30)
     assert driver.pending.ttl_s == 64.0
+
+
+def test_prefer_settings_does_not_use_broadcast_2012() -> None:
+    profile = load_profile("mida_cosma_pc1002")
+    regs = {2012: 1, 2013: 295}
+    state = apply_map(profile, regs)
+    assert state.mode is None
+    assert state.get("active_mode") == "heat"
+    state = apply_map(profile, regs, settings={1012: 2})
+    assert state.mode == "auto"
+    assert state.get("active_mode") == "heat"
+
+
+def test_poll_master_keeps_pending_if_extra_register_fails() -> None:
+    driver, sent, _ = _poll_master_with_state()
+    calls = 0
+
+    async def flaky(frame: bytes) -> None:
+        nonlocal calls
+        calls += 1
+        sent.append(frame)
+        if calls > 1:
+            raise OSError("tcp down on extra")
+
+    driver._send = flaky
+    driver.extra_write_addrs = lambda _register: [1077]  # type: ignore[method-assign]
+    with pytest.raises(OSError):
+        asyncio.run(driver.set_silent(True))
+    assert driver.state.silent is True
+    assert "silent" in driver.state.pending
 
 
 def test_write_frame_still_sent_once() -> None:

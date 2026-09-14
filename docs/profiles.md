@@ -1,5 +1,7 @@
 # Adding a heat pump profile
 
+User guide: [README](../README.md). Bus protocol, write path, and tests: [development.md](development.md).
+
 A profile is one JSON file under `custom_components/spo_pool_heat_pump/profiles/`. No Python for a same-family pump.
 
 Copy `mida_cosma_pc1002.json`, name the file `{brand}_{product}_{family}.json`, change `identity.id` to match, keep the same register keys the climate card needs, add CRC-valid `fixtures.frames`, drop a dump next to `../protocol-analysis/dumps/`. A new talk pattern (not 2001 sniff, not FC03 poll) needs a new `HeatPumpDriver` class — do not invent a third decode path.
@@ -35,13 +37,20 @@ HA device manufacturer = `brand`, model = `model`. Fault JSON `_faults_pc1002.js
 `type` is one of `u16`, `i16`, `bool`, `enum`, `bits`, `faults`, `ascii`, `bcd_hms`. Fairland coil maps may add `transform: fairland_temp`. Protocol `bitfield` becomes `bits`.
 
 ```json
+"mode": { "reg": 2012, "write": 1012, "prefer": "settings", "enum": "mode", "type": "enum" },
+"active_mode": { "reg": 2012, "enum": "mode", "type": "enum" },
 "setpoint": { "reg": 2013, "write": 1013, "type": "i16", "scale": 0.1, "unit": "°C" },
+"setpoint_cool": { "write": 1135, "scale": 0.1, "type": "i16" },
+"setpoint_heat": { "write": 1136, "scale": 0.1, "type": "i16" },
+"setpoint_auto": { "write": 1137, "scale": 0.1, "type": "i16" },
 "t_suction": { "reg": 2045, "type": "i16", "scale": 0.1, "unit": "°C",
   "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
 "outputs": { "reg": 2019, "type": "bits", "bits": { "compressor": 0, "water_pump": 1 } },
 "faults": { "regs": [2074, 2075, 2076, 2077], "type": "faults", "file": "_faults_pc1002.json" },
 "clock": { "reg": 3015, "count": 3, "type": "bcd_hms" }
 ```
+
+On the PC1002 panel path, `setpoint.write` 1013 is DTU/fallback only. Slave 2 writes the per-mode words 1135–1137. `prefer: "settings"` makes `mode` come from page word 1012; broadcast 2012 is `active_mode` (running direction, never auto).
 
 An `entity` block creates a disabled diagnostic without new Python. Every such key (or bit name) needs a `strings.json` entry.
 
@@ -51,7 +60,7 @@ Climate modes come from `modes`. Sensors and switches appear when the register k
 
 ## Driver
 
-`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Mini lists DTU and slave 2 — pick slave 2 when there is no WiFi module. `driver.settings.pages` are the one-shot FC03 service-menu reads. `settings.flags` (3011 bits) re-reads those pages when the panel says they changed (`4` → 1001, `32` → 1091 timers, `64` → 1091 setpoints). Cosma and Hayward also set `power_also_write: [1014]`.
+`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Default is slave 2 on every PC1002 profile; `dtu_99` is opt-in and mode-only on this bus. `driver.settings.pages` seed the service-menu cache (slave 2 is pushed those pages by the board and does not FC03-read the display). `settings.flags` (3011 bits) re-reads those pages on the DTU/panel_1 paths when the panel says they changed (`4` → 1001, `32` → 1091 timers, `64` → 1091 setpoints). Cosma and Hayward also set `power_also_write: [1014]`.
 
 `poll_master` uses `driver.reads`: `{name, fc, slave, start, qty}`. IPS Pro outputs must use `block` / `offset` so coil polls decode. The integration option **Modbus slave (H37)** overrides `poll_slave` and every `reads[].slave` (Fairland CN13 default 50). Do not point `faults.file` at `_faults_pc1002.json` unless a dump proved those bits. CN13 keeps the 2074–2077 words and shows raw `reg.bit` codes until someone maps them.
 
