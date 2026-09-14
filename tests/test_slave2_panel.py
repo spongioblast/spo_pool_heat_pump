@@ -144,13 +144,13 @@ def test_write_raises_exact_display_flag_and_survives_old_page_push() -> None:
     poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
     assert poll.values[10] == FLAG_READ_1001 == 0x0004
 
-    # Board reads the page back: our value is in it. The flag stays up until the
-    # board's 3001 sync (0.85 s later on the live bus) reports 0 — sending is not receiving.
+    # Board reads the page back: our value is in it, flag drops (like the display).
     page = parse_frame(driver.handle_frame(encode_fc03(2, 1001, 90)))
     assert page is not None and page.values[1076 - 1001] == 1
-    assert driver.slave2.flags_3011 == FLAG_READ_1001
-    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
     assert driver.slave2.flags_3011 == 0
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))  # board: got it
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
 
     # Board is still pushing the OLD page this cycle — must not wipe the queued value.
     driver.handle_frame(encode_fc16(2, 1001, page_1001(r1076=0)))
@@ -177,41 +177,58 @@ def test_page_1091_writes_use_0x0020_and_setpoint_heat_0x0040() -> None:
     page = parse_frame(driver.handle_frame(encode_fc03(2, 1091, 90)))
     assert page.values[1150 - 1091] == 7
     assert page.values[1136 - 1091] == 300
-    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
     assert driver.slave2.flags_3011 == 0
 
 
-def test_lost_page_reply_keeps_the_flag_up_for_a_retry() -> None:
-    """Live capture 2026-09-14 11:51: the board's read came late, its 3001 sync followed
-    23 ms later echoing 0x0004 (it never got our page) and it fell back to the display.
-    The flag must stay raised so the next poll makes it read the page again."""
+def test_board_echoing_our_bit_after_the_read_triggers_one_retry() -> None:
+    """Live captures 2026-09-14 11:51 / 12:24: when the board's read of our page did
+    not get through, its 3001 sync 0.02–0.34 s later echoes our bit instead of 0 and it
+    falls back to the wired display's page. Raise the bit again at the next poll."""
     driver, _ = make_driver()
     board_cycle(driver, page_1001())
     asyncio.run(driver.set_mode("auto"))
     driver.handle_frame(encode_fc03(2, 3001, 30))
     driver.handle_frame(encode_fc03(2, 1001, 90))  # our reply is lost on the way
-    driver.handle_frame(
-        encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001])
-    )  # board echoes it
+    assert driver.slave2.flags_3011 == 0, "dropped on send, like the display"
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001]))  # echo
     poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
-    assert poll.values[10] == FLAG_READ_1001, "still asking to be read"
+    assert poll.values[10] == FLAG_READ_1001, "asking to be read again"
     page = parse_frame(driver.handle_frame(encode_fc03(2, 1001, 90)))
     assert page.values[1012 - 1001] == 2
-    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
     assert driver.slave2.flags_3011 == 0
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))  # board: got it this time
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
 
 
-def test_write_queued_between_read_and_sync_is_not_acked_away() -> None:
+def test_read_retries_are_bounded() -> None:
     driver, _ = make_driver()
     board_cycle(driver, page_1001())
     driver.slave2.queue_write(1076, 1)
-    driver.handle_frame(encode_fc03(2, 1001, 90))  # board reads page with 1076 only
-    driver.slave2.queue_write(1012, 2)  # second write lands before the sync
-    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))  # ack for the first read
-    assert driver.slave2.flags_3011 == FLAG_READ_1001, "1012 has not been read yet"
+    raised = 0
+    for _ in range(5):
+        poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+        if poll.values[10] & FLAG_READ_1001:
+            raised += 1
+        driver.handle_frame(encode_fc03(2, 1001, 90))
+        driver.handle_frame(encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001]))
+    assert raised == 1 + slave2_mod.MAX_READ_RETRIES
+    assert driver.slave2.pending_registers == [1076], "value still overlaid until TTL"
 
 
-def test_expired_or_confirmed_overlay_drops_its_flag(
+def test_successful_sync_does_not_cause_a_retry() -> None:
+    driver, _ = make_driver()
+    board_cycle(driver, page_1001())
+    driver.slave2.queue_write(1076, 1)
+    driver.handle_frame(encode_fc03(2, 3001, 30))
+    driver.handle_frame(encode_fc03(2, 1001, 90))
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [0]))
+    for _ in range(3):
+        poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+        assert poll.values[10] == 0
+
+
+def test_expired_or_confirmed_overlay_drops_a_pending_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     driver, _ = make_driver()
@@ -220,15 +237,17 @@ def test_expired_or_confirmed_overlay_drops_its_flag(
     monkeypatch.setattr(slave2_mod.time, "monotonic", lambda: now[0])
     driver.slave2.queue_write(1076, 1)
     driver.handle_frame(encode_fc03(2, 1001, 90))
-    # Sync never parsed (DR164 split it); the flag would otherwise stay up forever.
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001]))  # echo
     now[0] += OVERLAY_TTL_S + 1
     poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
-    assert poll.values[10] == 0
-    # Confirmation by page push also drops it.
+    assert poll.values[10] == 0, "expired write must not be retried"
+    # Confirmation by page push also cancels a retry.
     driver.slave2.queue_write(1076, 1)
     driver.handle_frame(encode_fc03(2, 1001, 90))
+    driver.handle_frame(encode_fc16(2, 3001, SERIAL + [FLAG_READ_1001]))
     driver.handle_frame(encode_fc16(2, 1001, page_1001(r1076=1)))
-    assert driver.slave2.flags_3011 == 0
+    poll = parse_frame(driver.handle_frame(encode_fc03(2, 3001, 30)))
+    assert poll.values[10] == 0
 
 
 def test_second_panel_never_reads_the_display_on_its_own() -> None:

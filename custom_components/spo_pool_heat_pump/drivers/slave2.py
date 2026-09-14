@@ -51,6 +51,10 @@ REG_3011 = 3011
 # or this long has passed (rejected / never read) — then the board's value wins.
 OVERLAY_TTL_S = 20.0
 
+# How often one write may ask to be read again after the board's sync echoed
+# our bit (its read of our page did not get through, ~1 in 12 on the live bus).
+MAX_READ_RETRIES = 2
+
 _PAGES = (1001, 1091, 1181)
 
 
@@ -74,8 +78,11 @@ class Slave2Responder:
         # register -> (value, deadline); applied on top of the seeded page.
         self._overlay: dict[int, tuple[int, float]] = {}
         self.flags_3011 = 0
-        # Flag bits whose page we have answered a read for since they were raised.
+        # Bits whose page we answered a read for, awaiting the board's 3001 sync.
         self._served = 0
+        # Bits to raise again at the next poll (board echoed them = read failed).
+        self._retry_bits = 0
+        self._retries_left = 0
 
     # -- compatibility accessors used by the driver and tests -------------
     @property
@@ -121,17 +128,17 @@ class Slave2Responder:
             and frame.values
         ):
             # The board writes 3001×11 to us ~0.85 s after every page read; word 10
-            # is its view of our flags. 0 = it took the page (11/11 successes on the
-            # live bus); an echo of our own bit (0x0004, 23 ms after the read) means
-            # it never got our reply and fell back to the wired display's page. Keep
-            # such bits raised so the next poll makes it read the page again.
+            # is its view of our flags. 0 = it took the page (every success on the
+            # live bus); an echo of the bit we just served (0.02–0.34 s after the
+            # read, 3/3 failures) means it did not process our reply and is falling
+            # back to the wired display's page. Ask to be read again at the next
+            # poll — bounded, so a board that keeps refusing cannot loop us.
             n = min(len(frame.values), 30)
             self.block_3001[:n] = [int(v) & 0xFFFF for v in frame.values[:n]]
-            if len(frame.values) > 10:
-                board_view = int(frame.values[10]) & 0xFFFF
-                # Only bits whose page the board actually read since they were
-                # raised can be acked; a write queued after that read stays up.
-                self.flags_3011 &= ~(self._served & ~board_view)
+            if len(frame.values) > 10 and self._served:
+                echoed = int(frame.values[10]) & 0xFFFF & self._served
+                if echoed and self._retries_left > 0:
+                    self._retry_bits |= echoed
                 self._served = 0
 
     def cache_from_broadcast(self, regs: dict[int, int]) -> None:
@@ -174,6 +181,8 @@ class Slave2Responder:
             return
         self.flags_3011 |= bit
         self._served &= ~bit
+        self._retry_bits &= ~bit
+        self._retries_left = MAX_READ_RETRIES
 
     def discard_write(self, register: int) -> None:
         self._overlay.pop(register, None)
@@ -194,8 +203,10 @@ class Slave2Responder:
         live = {_page_of(register) for register in self._overlay}
         if 1001 not in live:
             self.flags_3011 &= ~FLAG_READ_1001
+            self._retry_bits &= ~FLAG_READ_1001
         if 1091 not in live:
             self.flags_3011 &= ~(FLAG_READ_1091 | FLAG_SETPOINT)
+            self._retry_bits &= ~(FLAG_READ_1091 | FLAG_SETPOINT)
 
     def _page(self, start: int) -> list[int]:
         self._expire()
@@ -226,6 +237,10 @@ class Slave2Responder:
         qty = parsed.qty or 0
         if start == 3001:
             self._expire()  # drops flags whose overlay has timed out
+            if self._retry_bits:
+                self.flags_3011 |= self._retry_bits
+                self._retry_bits = 0
+                self._retries_left -= 1
             values = list(self.block_3001)
             if len(values) > 10:
                 values[10] = self.flags_3011
@@ -233,14 +248,15 @@ class Slave2Responder:
         if start in _PAGES:
             if not self._seeded[start]:
                 return None
-            # The flag is not cleared here: sending the reply is not the same as the
-            # board receiving it. It clears when the board's 3001 sync says 0
-            # (observe), when the board pushes the value back (seed_page), or when
-            # the overlay expires.
-            if start == 1001:
-                self._served |= self.flags_3011 & FLAG_READ_1001
-            elif start == 1091:
-                self._served |= self.flags_3011 & (FLAG_READ_1091 | FLAG_SETPOINT)
+            # Drop the bit as soon as the page is served, exactly like the wired
+            # display. Leaving it up does not help: the board then re-reads the page
+            # every cycle and commits nothing until the bit drops (18 s on the live
+            # bus, 2026-09-14 12:24). Remember what was served so the board's sync
+            # can tell us whether the read actually got through.
+            bits = FLAG_READ_1001 if start == 1001 else (FLAG_READ_1091 | FLAG_SETPOINT)
+            if start in (1001, 1091):
+                self._served = self.flags_3011 & bits
+                self.flags_3011 &= ~bits
             return encode_fc03_reply(2, self._page(start)[:qty])
         if start == REG_3011:
             return encode_fc03_reply(2, [self.flags_3011])
