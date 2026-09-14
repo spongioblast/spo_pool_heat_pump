@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 ConnectionCallback = Callable[[bool], None]
 
-from ..const import IDLE_FRAME_S
-from ..modbus_rtu import find_frames, parse_frame
+from ..const import IDLE_FRAME_S, STALE_REPLY_S
+from ..modbus_rtu import complete_frames, find_frames, parse_frame
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +24,8 @@ class BusRecorder(Protocol):
 
 
 class TcpRtuClient:
-    """One TCP client. Serial bytes are framed by 20 ms idle (DR164 factory)."""
+    """One TCP client. Serial bytes are framed by idle (DR164 pack interval), or
+    sooner when the buffer is already a complete CRC-valid RTU frame."""
 
     def __init__(self, host: str, port: int, idle_s: float = IDLE_FRAME_S) -> None:
         self.host = host
@@ -106,9 +108,21 @@ class TcpRtuClient:
                 return
             _LOGGER.debug("Connecting to %s:%s", self.host, self.port)
             self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
+            self._set_nodelay()
             self._last_rx = asyncio.get_running_loop().time()
             self._ready.set()
             self._note_reconnected()
+
+    def _set_nodelay(self) -> None:
+        writer = self._writer
+        extra = getattr(writer, "get_extra_info", None)
+        sock = extra("socket") if extra else None
+        if sock is None:
+            return
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            _LOGGER.debug("TCP_NODELAY not set on %s:%s", self.host, self.port, exc_info=True)
 
     async def _close(self) -> None:
         async with self._conn_lock:
@@ -125,18 +139,28 @@ class TcpRtuClient:
         self._reader = None
         self._writer = None
 
-    async def send(self, frame: bytes) -> None:
-        """Wait one idle gap, then write. DR164 forwards TCP→serial one-by-one."""
+    async def send(self, frame: bytes, *, solicited: bool = False) -> None:
+        """Write ``frame``. Unsolicited writes wait one idle gap so they do not
+        collide with a broadcast. Solicited slave-2 replies skip that wait (the
+        board just addressed us) and are dropped if the request is already too
+        old to beat the ~340 ms page-read deadline.
+        """
         async with self._tx_lock:
             if not self.connected:
                 await asyncio.wait_for(self._ready.wait(), timeout=10.0)
             if not self.connected:
                 raise ConnectionError("TCP not connected")
             now = asyncio.get_running_loop().time()
-            last_bus = max(self._last_rx, self._last_tx)
-            wait = self.idle_s - (now - last_bus)
-            if wait > 0:
-                await asyncio.sleep(wait)
+            if solicited:
+                age = now - self._last_rx
+                if age > STALE_REPLY_S:
+                    _LOGGER.debug("dropping late solicited reply (age=%.3fs)", age)
+                    return
+            else:
+                last_bus = max(self._last_rx, self._last_tx)
+                wait = self.idle_s - (now - last_bus)
+                if wait > 0:
+                    await asyncio.sleep(wait)
             assert self._writer is not None
             self._writer.write(frame)
             await self._writer.drain()
@@ -164,6 +188,9 @@ class TcpRtuClient:
                     buf.extend(chunk)
                     last = now
                     self._last_rx = now
+                    if complete_frames(bytes(buf)) is not None:
+                        await self._emit(bytes(buf))
+                        buf.clear()
                     continue
                 eof = self._reader is not None and self._reader.at_eof()
                 if buf and (now - last >= self.idle_s or eof):

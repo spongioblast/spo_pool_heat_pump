@@ -298,11 +298,20 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
             self._stale_handle.cancel()
         self._stale_handle = loop.call_later(STALE_SECONDS, self._mark_stale)
 
+    def _has_pending_writes(self) -> bool:
+        pending = getattr(self.driver, "pending", None)
+        return bool(pending)
+
     def _mark_stale(self) -> None:
         """No fresh frame for STALE_SECONDS — mark unavailable.
 
         Push profiles wait for the 2001 broadcast; poll profiles wait for a poll cycle.
+        The board itself pauses ~6 s after adopting a change; if a write is still
+        in flight, keep showing the optimistic value and wait another window.
         """
+        if self._has_pending_writes():
+            self._arm_stale()
+            return
         current = self.state
         current.available = False
         reason = "Poll timed out" if self.is_polling else "No 2001 broadcast"
@@ -353,7 +362,7 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
     async def async_on_frame(self, frame: bytes) -> None:
         reply = self.driver.handle_frame(frame)
         if reply:
-            await self.client.send(reply)
+            await self.client.send(reply, solicited=True)
         pages = await self.driver.after_frame()
         if pages:
             self._create_task(self._async_flag_refresh(pages), "spo_pool_heat_pump_flag_refresh")

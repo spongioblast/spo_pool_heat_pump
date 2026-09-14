@@ -176,6 +176,31 @@ def find_frames(buf: bytes) -> list[RtuFrame]:
     return found
 
 
+def complete_frames(buf: bytes) -> list[RtuFrame] | None:
+    """Return frames only when every byte is part of a CRC-valid RTU frame.
+
+    Used by the TCP framer to emit as soon as a self-delimiting request (an
+    8-byte FC03, a complete FC16, …) is in the buffer, instead of waiting
+    another idle gap. A leftover byte, leading noise, or a gap between
+    frames means the buffer is not complete yet — caller falls back to idle.
+    """
+    if len(buf) < 4:
+        return None
+    frames = find_frames(buf)
+    if not frames:
+        return None
+    offset = 0
+    for fr in frames:
+        raw = fr.raw
+        end = offset + len(raw)
+        if buf[offset:end] != raw:
+            return None
+        offset = end
+    if offset != len(buf):
+        return None
+    return frames
+
+
 def _candidate_lengths(buf: bytes, i: int) -> list[int]:
     n = len(buf) - i
     if n < 4:

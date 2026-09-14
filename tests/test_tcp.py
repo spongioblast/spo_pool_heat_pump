@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from spo_pool_heat_pump.modbus_rtu import encode_fc16, parse_frame
+from spo_pool_heat_pump.modbus_rtu import encode_fc03, encode_fc03_reply, encode_fc16, parse_frame
 from spo_pool_heat_pump.transport.tcp import TcpRtuClient
 
 
@@ -186,6 +186,83 @@ def test_tcp_logs_unavailable_once() -> None:
     ]
     assert log.warning.call_count == 0
     assert seen == [False, True]
+
+
+def test_complete_request_emits_without_idle_wait() -> None:
+    async def run() -> None:
+        ports: list[int] = []
+        frame = encode_fc03(2, 1001, 90)
+        got = asyncio.Event()
+        seen: list[bytes] = []
+
+        async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            writer.write(frame)
+            await writer.drain()
+            await asyncio.sleep(0.2)
+            writer.close()
+
+        server = await asyncio.start_server(handler, "127.0.0.1", 0)
+        ports.append(server.sockets[0].getsockname()[1])
+
+        async def on_frame(blob: bytes) -> None:
+            seen.append(blob)
+            got.set()
+
+        client = TcpRtuClient("127.0.0.1", ports[0], idle_s=0.08)
+        started = asyncio.get_running_loop().time()
+        await client.start(on_frame)
+        await asyncio.wait_for(got.wait(), timeout=1.0)
+        elapsed = asyncio.get_running_loop().time() - started
+        await client.stop()
+        server.close()
+        await server.wait_closed()
+        assert seen[0] == frame
+        assert elapsed < 0.05
+
+    asyncio.run(run())
+
+
+def test_solicited_send_drops_stale_reply() -> None:
+    async def run() -> None:
+        client = TcpRtuClient("127.0.0.1", 8899, idle_s=0.02)
+        writer = _FakeWriter()
+        client._writer = writer  # type: ignore[assignment]
+        client._ready.set()
+        reply = encode_fc03_reply(2, [0] * 30)
+        client._last_rx = asyncio.get_running_loop().time() - 0.25
+        await client.send(reply, solicited=True)
+        assert writer.writes == []
+        client._last_rx = asyncio.get_running_loop().time()
+        await client.send(reply, solicited=True)
+        assert writer.writes == [reply]
+
+    asyncio.run(run())
+
+
+def test_connect_sets_tcp_nodelay() -> None:
+    async def run() -> None:
+        import socket
+
+        async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            await asyncio.sleep(0.3)
+            writer.close()
+
+        server = await asyncio.start_server(handler, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        client = TcpRtuClient("127.0.0.1", port, idle_s=0.02)
+
+        async def on_frame(_blob: bytes) -> None:
+            return None
+
+        await client.start(on_frame)
+        sock = client._writer.get_extra_info("socket") if client._writer else None
+        assert sock is not None
+        assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) == 1
+        await client.stop()
+        server.close()
+        await server.wait_closed()
+
+    asyncio.run(run())
 
 
 def test_send_does_not_connect_while_reader_reconnects() -> None:

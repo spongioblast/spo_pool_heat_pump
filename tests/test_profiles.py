@@ -357,3 +357,9 @@ def test_cosmo_protocol_extras_present() -> None:
     flags = load_profile("mida_cosma_pc1002")["driver"]["settings"]["flags"]
     assert flags["reg"] == 3011
     assert flags["bits"]["4"] == 1001
+    assert flags["bits"]["32"] == 1091
+    assert flags["bits"]["64"] == 1091
+    assert "16" not in flags["bits"]
+    hayward = load_profile("hayward_pc1002")["driver"]["settings"]["flags"]
+    assert hayward["bits"]["32"] == 1091
+    assert "16" not in hayward["bits"]

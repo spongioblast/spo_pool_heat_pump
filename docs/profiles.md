@@ -51,7 +51,7 @@ Climate modes come from `modes`. Sensors and switches appear when the register k
 
 ## Driver
 
-`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Mini lists DTU and slave 2 — pick slave 2 when there is no WiFi module. `driver.settings.pages` are the one-shot FC03 service-menu reads. `settings.flags` (3011 bits) re-reads those pages when the panel says they changed. Cosma and Hayward also set `power_also_write: [1014]`.
+`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Mini lists DTU and slave 2 — pick slave 2 when there is no WiFi module. `driver.settings.pages` are the one-shot FC03 service-menu reads. `settings.flags` (3011 bits) re-reads those pages when the panel says they changed (`4` → 1001, `32` → 1091 timers, `64` → 1091 setpoints). Cosma and Hayward also set `power_also_write: [1014]`.
 
 `poll_master` uses `driver.reads`: `{name, fc, slave, start, qty}`. IPS Pro outputs must use `block` / `offset` so coil polls decode. The integration option **Modbus slave (H37)** overrides `poll_slave` and every `reads[].slave` (Fairland CN13 default 50). Do not point `faults.file` at `_faults_pc1002.json` unless a dump proved those bits. CN13 keeps the 2074–2077 words and shows raw `reg.bit` codes until someone maps them.
 

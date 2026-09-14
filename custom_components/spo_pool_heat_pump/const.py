@@ -7,8 +7,14 @@ import copy
 DOMAIN = "spo_pool_heat_pump"
 DEFAULT_PORT = 8899
 DEFAULT_NAME = "Pool heat pump"
-STALE_SECONDS = 8.0
+# The board can go silent for ~6 s after it adopts a change (13.7 s between
+# broadcasts in the 2026-09-14 paired dumps). 8 s flipped the entity unavailable
+# during that pause; 15 s covers the gap with a little headroom.
+STALE_SECONDS = 15.0
 IDLE_FRAME_S = 0.020
+# Solicited slave-2 replies older than this cannot beat the board's ~340 ms
+# page-read deadline and will collide with its next frame if sent anyway.
+STALE_REPLY_S = 0.200
 SENSOR_PUBLISH_INTERVAL_S = 15.0
 DETECT_LISTEN_S = 5.0
 BROADCAST_START = 2001
@@ -57,7 +63,7 @@ PLATFORMS = ["climate", "sensor", "binary_sensor", "switch", "number"]
 
 WRITE_PATH_LABELS = {
     WRITE_PATH_SLAVE2: "Second panel, slave 2 (default — verified on the bus, needs no WiFi module)",
-    WRITE_PATH_DTU: "WiFi module, slave 99 (only with the factory module plugged in; unverified)",
+    WRITE_PATH_DTU: "WiFi module, slave 99 (opt-in — mode-only on this bus; setpoint/quiet ignored by the board)",
     WRITE_PATH_PANEL: "Panel address 1 (unproven)",
 }
 WRITE_PATH_LABELS_SHORT = {
@@ -81,9 +87,10 @@ def suggested_write_path(driver_type: str, extra: dict, profile: dict | None = N
     raises a flag in its 3001 status reply. Home Assistant answers as the second
     panel — the same mechanism the wired display uses, and the only one that
     works without a WiFi module (live bus 2026-09-14). Slave 99 addresses the
-    factory module; whether the module forwards an FC16 from a third party is
-    unverified, and with no module on the bus it does nothing. A profile can
-    still pin its own ``driver.default_write``.
+    factory module: on this bus it forwards mode (1012) and the board adopts
+    it, but 1013/1076 are acked by the module and ignored by the board. With
+    no module on the bus it does nothing. A profile can still pin its own
+    ``driver.default_write``.
     """
     del extra
     pinned = ((profile or {}).get("driver") or {}).get("default_write")

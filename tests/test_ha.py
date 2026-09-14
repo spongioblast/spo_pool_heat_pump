@@ -24,8 +24,8 @@ from spo_pool_heat_pump.modbus_rtu import parse_frame  # noqa: E402
 from spo_pool_heat_pump.profiles import load_profile  # noqa: E402
 
 
-def test_stale_seconds_is_eight() -> None:
-    assert STALE_SECONDS == 8.0
+def test_stale_seconds_covers_board_pause() -> None:
+    assert STALE_SECONDS == 15.0
 
 
 def test_config_flow_mocked_detect() -> None:
@@ -80,6 +80,37 @@ def test_coordinator_stale_marks_unavailable() -> None:
         with patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.05):
             coord._push(state)
             assert coord.state.available is True
+            await asyncio.sleep(0.12)
+        assert coord.state.available is False
+        assert errors
+
+    asyncio.run(run())
+
+
+def test_coordinator_stale_waits_out_pending_writes() -> None:
+    async def run() -> None:
+        hass = MagicMock()
+        hass.loop = asyncio.get_running_loop()
+        entry = MagicMock()
+        entry.data = {"host": "10.0.0.8", "port": 8899, "profile": "mida_cosma_pc1002"}
+        entry.options = {}
+        entry.unique_id = "uid"
+        entry.title = "Pump"
+        entry.entry_id = "e1"
+        coord = PoolHeatPumpCoordinator(hass, entry, MagicMock())
+        coord.async_set_updated_data = lambda state: setattr(coord, "data", state)
+        errors: list[Exception] = []
+        coord.async_set_update_error = errors.append
+        state = HeatPumpState(available=True, serial="B99", mode="heat")
+        coord.driver.pending.mark("mode", 2)
+        with patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.05):
+            coord._push(state)
+            await asyncio.sleep(0.12)
+        assert coord.state.available is True
+        assert errors == []
+        coord.driver.pending.discard("mode")
+        with patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.05):
+            coord._push(state)
             await asyncio.sleep(0.12)
         assert coord.state.available is False
         assert errors

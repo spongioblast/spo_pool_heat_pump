@@ -7,6 +7,7 @@ import pytest
 
 from spo_pool_heat_pump.modbus_rtu import (
     bytes_to_hex,
+    complete_frames,
     crc_ok,
     encode_exception,
     encode_fc01,
@@ -51,6 +52,15 @@ def test_noise_dropped() -> None:
     found = find_frames(noise)
     assert len(found) == 1
     assert found[0].start == 1011
+
+
+def test_complete_frames_requires_every_byte() -> None:
+    request = encode_fc03(2, 1001, 90)
+    assert complete_frames(request) is not None
+    assert complete_frames(request + request) is not None
+    assert complete_frames(request + b"\x00") is None
+    assert complete_frames(b"\xde\xad" + request) is None
+    assert complete_frames(request[:4]) is None
 
 
 def test_exception_frame_is_parsed() -> None:

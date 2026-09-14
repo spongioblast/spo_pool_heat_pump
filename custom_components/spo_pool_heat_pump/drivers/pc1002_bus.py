@@ -209,15 +209,21 @@ class Pc1002BusDriver(HeatPumpDriver):
     async def _write_encoded(self, shown_as: str, register: int, encoded: int) -> None:
         """Send ``register=encoded`` and show it optimistically under ``shown_as``."""
         self.pending.mark(shown_as, encoded, ttl_s=self._pending_ttl(shown_as))
+        accepted = False
         try:
             await self._emit_write(register, encoded)
+            accepted = True
             for extra in self.extra_write_addrs(register):
                 await self._emit_write(extra, encoded)
         except Exception:
-            # Nothing reached the bus; do not show a value the pump never got.
-            self.pending.discard(shown_as)
-            self.slave2.discard_write(register)
-            self._republish_if_seeded()
+            # Only revert if the primary write never reached the page / wire.
+            # A later extra-register failure (or a coordinator error during the
+            # board's post-commit pause) must not hide a value the board already
+            # has a chance to read.
+            if not accepted:
+                self.pending.discard(shown_as)
+                self.slave2.discard_write(register)
+                self._republish_if_seeded()
             raise
 
     async def _emit_write(self, register: int, encoded: int) -> None:

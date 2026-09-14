@@ -126,6 +126,22 @@ def test_failed_send_does_not_show_optimistic_value() -> None:
     assert driver.state.pending == []
 
 
+def test_accepted_write_keeps_pending_if_extra_register_fails() -> None:
+    calls = 0
+
+    async def flaky(_frame: bytes) -> None:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise OSError("tcp down on extra")
+
+    driver, _ = make_driver(send=flaky)
+    with pytest.raises(OSError):
+        asyncio.run(driver.set_power(False))
+    assert driver.state.power is False
+    assert "power" in driver.state.pending
+
+
 def _poll_master_with_state() -> tuple[PollMasterDriver, list, list]:
     """Fairland CN13 driver after one full poll cycle (silent off, power on)."""
     sent: list[bytes] = []
