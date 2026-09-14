@@ -29,7 +29,9 @@ def make_driver(send=None) -> tuple[Pc1002BusDriver, list]:
     async def _send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send or _send, on_state=published.append)
+    # dtu_99 sends one frame and needs no seeded pages — the pending overlay is path-agnostic;
+    # the slave-2 handshake itself is covered in test_slave2_panel.py.
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send or _send, "dtu_99", on_state=published.append)
     driver.handle_frame(broadcast())
     assert driver.state.available
     assert driver.state.silent is False

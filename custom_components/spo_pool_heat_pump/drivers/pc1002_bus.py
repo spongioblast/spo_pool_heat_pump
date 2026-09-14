@@ -1,4 +1,10 @@
-"""Sniff the 2001×90 broadcast; write through dtu_99 / slave2 / panel_1."""
+"""Sniff the 2001×90 broadcast; write as the second panel (slave2), or via dtu_99 / panel_1.
+
+The main board is the bus master (see drivers/slave2.py). ``slave2`` answers
+its polls and pushes like a second display and hands it changed settings the
+way the wired display does. ``dtu_99`` / ``panel_1`` send an unsolicited FC16
+as a second master; neither has been seen to work on the verified bus.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +34,7 @@ class Pc1002BusDriver(HeatPumpDriver):
         self,
         profile: dict[str, Any],
         send: Callable,  # async (bytes) -> None
-        write_path: str = WRITE_PATH_DTU,
+        write_path: str = WRITE_PATH_SLAVE2,
         on_state: Callable[[HeatPumpState], None] | None = None,
     ) -> None:
         self.profile = profile
@@ -188,6 +194,7 @@ class Pc1002BusDriver(HeatPumpDriver):
         except Exception:
             # Nothing reached the bus; do not show a value the pump never got.
             self.pending.discard(name)
+            self.slave2.discard_write(register)
             self._republish_if_seeded()
             raise
 

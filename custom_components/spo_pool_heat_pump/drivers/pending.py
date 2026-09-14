@@ -24,10 +24,12 @@ from .base import HeatPumpState
 
 _LOGGER = logging.getLogger(__name__)
 
-# PC1002: a slave-99 write shows in the 2001 broadcast after a median 3.1 s and
-# at most ~4.2 s in the recorded dumps (broadcast period 1.74 s). Poll drivers
-# scale this with their poll interval (see PendingWrites.ttl_s).
-DEFAULT_TTL_S = 8.0
+# PC1002 via slave 2: the board polls slave 2 once per cycle (1.7 s), reads our
+# page ~0.35 s after seeing the flag, and the change shows in the next 2001
+# broadcast — a panel change reached the broadcast after a median 3.1 s and at
+# most ~4.2 s in the recorded dumps. Leave headroom for a cycle stretched by
+# retries. Poll drivers scale this with their poll interval (PendingWrites.ttl_s).
+DEFAULT_TTL_S = 12.0
 
 _CONTAINER_FIELDS = ("extras", "values", "raw", "outputs", "pending")
 

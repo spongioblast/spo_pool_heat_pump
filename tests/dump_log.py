@@ -13,6 +13,7 @@ TS = re.compile(r"^\[(?P<ts>[^\]]+)\] t\+\s*(?P<t>[\d.]+)s\s+(?P<n>\d+) bytes")
 class Packet:
     t: float
     data: bytes
+    tx: bool = False  # sent by Home Assistant ("# dir=tx" marker), not heard on the bus
 
 
 def read_dump(path: Path) -> list[Packet]:
@@ -20,18 +21,24 @@ def read_dump(path: Path) -> list[Packet]:
     t = 0.0
     hex_parts: list[str] = []
     grabbing = False
+    tx = False
+    next_tx = False
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = TS.match(line)
         if m:
             if grabbing and hex_parts:
-                packets.append(Packet(t, bytes(int(x, 16) for x in hex_parts if len(x) == 2)))
+                packets.append(Packet(t, bytes(int(x, 16) for x in hex_parts if len(x) == 2), tx))
             grabbing = True
             t = float(m.group("t"))
             hex_parts = []
+            tx, next_tx = next_tx, False
+            continue
+        if line.startswith("# dir=tx"):
+            next_tx = True
             continue
         if grabbing and line.strip() and not line.startswith("#"):
             left = line.split("|")[0]
             hex_parts.extend(p for p in left.split() if len(p) == 2)
     if grabbing and hex_parts:
-        packets.append(Packet(t, bytes(int(x, 16) for x in hex_parts if len(x) == 2)))
+        packets.append(Packet(t, bytes(int(x, 16) for x in hex_parts if len(x) == 2), tx))
     return packets

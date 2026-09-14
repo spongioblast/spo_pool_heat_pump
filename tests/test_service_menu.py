@@ -112,21 +112,20 @@ def test_write_path_choices_follow_targets() -> None:
     from spo_pool_heat_pump.const import write_path_choices
 
     mini = write_path_choices(load_profile("phnix_mini_pc1002"))
-    assert list(mini) == ["dtu_99", "slave2"]
+    assert list(mini) == ["slave2", "dtu_99"]
     cosma = write_path_choices(load_profile("mida_cosma_pc1002"))
     hayward = write_path_choices(load_profile("hayward_pc1002"))
-    assert list(cosma) == ["dtu_99", "slave2", "panel_1"]
-    assert list(hayward) == ["dtu_99", "slave2", "panel_1"]
+    assert list(cosma) == ["slave2", "dtu_99", "panel_1"]
+    assert list(hayward) == ["slave2", "dtu_99", "panel_1"]
 
 
-def test_suggested_write_path_always_dtu() -> None:
-    # Silence on slave 99 during the listen window is not proof of no DTU;
-    # slave 2 impersonates the panel and adds a master, so it never wins by default.
-    assert suggested_write_path("pc1002_bus", {}) == "dtu_99"
-    assert suggested_write_path("pc1002_bus", {"slave99": True}) == "dtu_99"
-    assert suggested_write_path("pc1002_bus", {"slave99": False}) == "dtu_99"
+def test_suggested_write_path_is_second_panel_regardless_of_slave99() -> None:
+    # The board is the bus master; a panel hands it changes via its 3001 flags.
+    # Hearing the WiFi module does not change that (live bus 2026-09-14).
+    assert suggested_write_path("pc1002_bus", {}) == WRITE_PATH_SLAVE2
+    assert suggested_write_path("pc1002_bus", {"slave99": True}) == WRITE_PATH_SLAVE2
+    assert suggested_write_path("pc1002_bus", {"slave99": False}) == WRITE_PATH_SLAVE2
     assert suggested_write_path("poll_master", {}) == "dtu_99"
-    assert WRITE_PATH_SLAVE2 != suggested_write_path("pc1002_bus", {})
 
 
 def test_service_menu_write_option_gate() -> None:

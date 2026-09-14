@@ -29,11 +29,11 @@
   "driver": {
     "type": "pc1002_bus",
     "write_targets": [
-      "dtu_99",
       "slave2",
+      "dtu_99",
       "panel_1"
     ],
-    "default_write": "dtu_99",
+    "default_write": "slave2",
     "power_also_write": [
       1014
     ],

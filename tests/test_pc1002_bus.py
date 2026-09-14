@@ -53,7 +53,7 @@ async def _send(_frame: bytes) -> None:
 
 
 def test_driver_handle_broadcast() -> None:
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send, "dtu_99")
     driver.handle_frame(first_broadcast())
     state = driver.state
     assert state.available
@@ -74,7 +74,7 @@ def test_write_power_on_frame(monkeypatch) -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
     import asyncio
 
     asyncio.run(driver.set_power(True))
@@ -89,7 +89,7 @@ def test_hayward_power_also_writes_1014() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("hayward_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("hayward_pc1002"), send, "dtu_99")
     import asyncio
 
     asyncio.run(driver.set_power(True))
@@ -104,7 +104,7 @@ def test_timer_extras_survive_broadcast() -> None:
 
     from spo_pool_heat_pump.modbus_rtu import encode_fc03, encode_fc03_reply, encode_fc16
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send, "dtu_99")
     driver.handle_frame(first_broadcast())
     assert driver.state.available
     asyncio.run(driver.write_register("timer1_on", 1))
@@ -132,7 +132,7 @@ def test_set_mode_restores_saved_heat_setpoint() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
     driver.handle_frame(first_broadcast())
     driver.settings.put(1136, 310)
     driver._publish(driver.state.raw)
@@ -146,7 +146,7 @@ def test_set_mode_restores_saved_heat_setpoint() -> None:
 
 
 def test_3011_flags_queue_page_reread() -> None:
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), _send, "dtu_99")
     driver._last_3011 = 0
     driver.settings.put(3011, 4)
     driver._maybe_queue_flag_reread()
@@ -165,7 +165,7 @@ def test_set_mode_cool_does_not_write_heat_setpoint() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
     driver.handle_frame(first_broadcast())
     driver.settings.put(1135, 240)
     driver.settings.put(1136, 310)
@@ -188,7 +188,7 @@ def test_set_setpoint_after_mode_cool_writes_cool_extra() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")
     driver.handle_frame(first_broadcast())
     driver.settings.put(1135, 240)
     driver.settings.put(1136, 310)
@@ -241,7 +241,7 @@ def test_overlapping_refresh_settings_serialized() -> None:
         await asyncio.sleep(0.02)
         driver.handle_frame(encode_fc03_reply(1, values))
 
-    driver = Pc1002BusDriver(profile, send)
+    driver = Pc1002BusDriver(profile, send, "dtu_99")
     driver.handle_frame(first_broadcast())
 
     async def run() -> None:

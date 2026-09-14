@@ -56,33 +56,41 @@ PLATFORMS = ["climate", "sensor", "binary_sensor", "switch", "number"]
 
 
 WRITE_PATH_LABELS = {
-    WRITE_PATH_DTU: "DTU slave 99 (default — same frame as the factory app)",
-    WRITE_PATH_SLAVE2: "Slave 2 responder (only if there is no WiFi module and slave 99 writes do nothing)",
+    WRITE_PATH_SLAVE2: "Second panel, slave 2 (default — verified on the bus, needs no WiFi module)",
+    WRITE_PATH_DTU: "WiFi module, slave 99 (only with the factory module plugged in; unverified)",
     WRITE_PATH_PANEL: "Panel address 1 (unproven)",
 }
 WRITE_PATH_LABELS_SHORT = {
-    WRITE_PATH_DTU: "DTU slave 99",
-    WRITE_PATH_SLAVE2: "Slave 2 (no WiFi module)",
+    WRITE_PATH_SLAVE2: "Second panel (slave 2)",
+    WRITE_PATH_DTU: "WiFi module (slave 99)",
     WRITE_PATH_PANEL: "Panel address 1 (unproven)",
 }
 
 
 def write_path_choices(profile: dict, *, short: bool = False) -> dict[str, str]:
     labels = WRITE_PATH_LABELS_SHORT if short else WRITE_PATH_LABELS
-    targets = (profile.get("driver") or {}).get("write_targets") or [WRITE_PATH_DTU]
+    targets = (profile.get("driver") or {}).get("write_targets") or [WRITE_PATH_SLAVE2]
     return {key: labels[key] for key in targets if key in labels}
 
 
-def suggested_write_path(driver_type: str, extra: dict) -> str:
-    """Always DTU slave 99.
+def suggested_write_path(driver_type: str, extra: dict, profile: dict | None = None) -> str:
+    """Default write path for a freshly detected unit.
 
-    That is the frame the factory app sends and a silent no-op when no module
-    is present. Slave 2 impersonates the second panel and adds a master to the
-    bus, so it stays opt-in. Detection cannot prove a DTU is absent: slave 99
-    traffic is bursty (idle gaps of minutes in the real dumps), so `extra`
-    lacking ``slave99`` only means nothing was heard in the listen window.
+    On the PC1002 bus the main board is the Modbus master; it polls the display
+    panels (slave 1 and 2) and reads a settings page back from a panel that
+    raises a flag in its 3001 status reply. Home Assistant answers as the second
+    panel — the same mechanism the wired display uses, and the only one that
+    works without a WiFi module (live bus 2026-09-14). Slave 99 addresses the
+    factory module; whether the module forwards an FC16 from a third party is
+    unverified, and with no module on the bus it does nothing. A profile can
+    still pin its own ``driver.default_write``.
     """
-    del driver_type, extra
+    del extra
+    pinned = ((profile or {}).get("driver") or {}).get("default_write")
+    if pinned:
+        return str(pinned)
+    if driver_type == "pc1002_bus":
+        return WRITE_PATH_SLAVE2
     return WRITE_PATH_DTU
 
 

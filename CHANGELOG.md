@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- Optimistic writes: power, mode, setpoint, quiet and timer changes show immediately instead of after the next broadcast (2–4 s). Values stay flagged in `pending_writes` and the card pulses them until the heat pump echoes them; unconfirmed writes revert after 8 s with a warning. Polled (Fairland) profiles get the same, confirmed by the next poll cycle
+- **Writes fixed on the PC1002 bus.** The main board is the Modbus master and treats Home Assistant as the second display panel. The slave 2 responder now acknowledges the board's page pushes (FC16 echo) like a real panel — without that the board retried every push twice per cycle forever (cycle 1.7 s → 6.7 s) and ignored our change flag, so only the very first write after a restart went through. It also raises exactly the 3011 bits the wired display uses (`0x0004` page 1001, `0x0020`/`0x0040` page 1091) instead of `0x8004`, and keeps a queued value in its page copy until the board pushes it back, so a push of the old page cannot wipe it. Measured on the live bus 2026-09-14 and in the recorded dumps
+- Write path defaults to **Second panel (slave 2)** for all PC1002 profiles. **WiFi module (slave 99)** and **Panel address 1** remain selectable but are unverified / unproven; slave 99 does nothing when no module is on the bus
+- Optimistic writes: power, mode, setpoint, quiet and timer changes show immediately instead of after the next broadcast (2–4 s). Values stay flagged in `pending_writes` and the card pulses them until the heat pump echoes them; unconfirmed writes revert after 12 s with a warning. Polled (Fairland) profiles get the same, confirmed by the next poll cycle
 - Profile JSON is read once in an executor and cached; no more "Detected blocking call to read_text / scandir" warnings from config and options flows
 - `setup.html` merged into the README and removed; config-flow texts link to the README on GitHub
-- Write path always defaults to **DTU slave 99** (the factory-app frame; a no-op without a module). Slave 2 is opt-in — it adds a second master to the bus and impersonates the second panel
 - Detection listens for the full window instead of stopping at the first 2001 broadcast, and reports slave 99 as "heard / not heard" rather than claiming the module is absent
 
 ## 1.1.0

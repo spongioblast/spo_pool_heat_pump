@@ -24,7 +24,7 @@ from .const import (
     DEFAULT_PORT,
     DOMAIN,
     WATER_FLOW_MAX,
-    WRITE_PATH_DTU,
+    WRITE_PATH_SLAVE2,
     merge_entry_options,
     suggested_write_path,
     write_path_choices,
@@ -138,9 +138,9 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
         schema: dict[Any, Any] = {vol.Required(CONF_NAME, default=DEFAULT_NAME): str}
         if driver == "pc1002_bus":
             paths = write_path_choices(profile)
-            default_path = suggested_write_path(driver, self._detect_extra)
+            default_path = suggested_write_path(driver, self._detect_extra, profile)
             if default_path not in paths:
-                default_path = next(iter(paths), WRITE_PATH_DTU)
+                default_path = next(iter(paths), WRITE_PATH_SLAVE2)
             schema[vol.Required(CONF_WRITE_PATH, default=default_path)] = vol.In(paths)
         elif driver == "poll_master":
             schema[vol.Required(CONF_POLL_INTERVAL, default=int(profile["driver"].get("poll_interval", 10)))] = int
@@ -152,11 +152,11 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
         if driver == "listen_only":
             note = "Dump-only does not write or decode. Open the card Settings → Bus dump, then switch to a real profile."
         elif driver == "pc1002_bus" and self._detect_extra.get("slave99"):
-            note = "Heard the WiFi module (slave 99) on the bus."
+            note = "Heard the WiFi module (slave 99) on the bus. The default path (second panel) works with or without it."
         elif driver == "pc1002_bus":
             note = (
                 "No slave 99 traffic heard while listening. That does not prove there is no WiFi module "
-                "— it only talks in bursts."
+                "— it only talks in bursts. The default path (second panel) does not need one."
             )
         else:
             note = ""
@@ -221,10 +221,10 @@ class PoolHeatPumpOptionsFlow(OptionsFlow):
         if driver == "pc1002_bus":
             paths = write_path_choices(profile, short=True)
             default_path = entry.options.get(
-                CONF_WRITE_PATH, entry.data.get(CONF_WRITE_PATH, WRITE_PATH_DTU)
+                CONF_WRITE_PATH, entry.data.get(CONF_WRITE_PATH, WRITE_PATH_SLAVE2)
             )
             if default_path not in paths:
-                default_path = next(iter(paths), WRITE_PATH_DTU)
+                default_path = next(iter(paths), WRITE_PATH_SLAVE2)
             schema[vol.Required(CONF_WRITE_PATH, default=default_path)] = vol.In(paths)
         elif driver == "poll_master":
             schema[

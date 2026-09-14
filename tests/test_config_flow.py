@@ -88,7 +88,7 @@ def test_cosma_create_puts_settings_in_options() -> None:
     asyncio.run(run())
 
 
-def test_cosma_form_defaults_to_dtu_even_when_slave99_not_heard() -> None:
+def test_cosma_form_defaults_to_second_panel_with_or_without_slave99() -> None:
     async def run() -> None:
         flow = _flow()
         flow._host = "10.0.0.8"
@@ -98,13 +98,15 @@ def test_cosma_form_defaults_to_dtu_even_when_slave99_not_heard() -> None:
         form = await flow.async_step_options_setup()
         assert form["type"] == "form"
         defaults = {key.schema: key.default() for key in form["data_schema"].schema if key.default is not vol.UNDEFINED}
-        assert defaults[CONF_WRITE_PATH] == "dtu_99"
+        assert defaults[CONF_WRITE_PATH] == "slave2"
         note = form["description_placeholders"]["bus_note"]
         assert "does not prove" in note
-        assert "slave 2" not in note.lower()
+        assert "does not need one" in note
 
         flow._detect_extra = {"broadcast": {}, "fw_display": 713, "slave99": True}
         form = await flow.async_step_options_setup()
+        defaults = {key.schema: key.default() for key in form["data_schema"].schema if key.default is not vol.UNDEFINED}
+        assert defaults[CONF_WRITE_PATH] == "slave2"
         assert "Heard" in form["description_placeholders"]["bus_note"]
 
     asyncio.run(run())

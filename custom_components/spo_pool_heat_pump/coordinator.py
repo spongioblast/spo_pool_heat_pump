@@ -19,7 +19,7 @@ from .const import (
     CONF_WRITE_PATH,
     DOMAIN,
     STALE_SECONDS,
-    WRITE_PATH_DTU,
+    WRITE_PATH_SLAVE2,
     apply_runtime_overrides,
     reload_option_fingerprint,
     service_menu_writes_enabled,
@@ -122,7 +122,7 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         self.device_name = entry.title or self.profile["identity"]["model"]
         self.unique_id = entry.unique_id or f"{entry.data.get('host')}:{profile_id}"
         self.energy = EnergyIntegrator()
-        write_path = entry.options.get(CONF_WRITE_PATH, entry.data.get(CONF_WRITE_PATH, WRITE_PATH_DTU))
+        write_path = entry.options.get(CONF_WRITE_PATH, entry.data.get(CONF_WRITE_PATH, WRITE_PATH_SLAVE2))
         self.driver: HeatPumpDriver = build_driver(
             self.profile, client.send, write_path, self._push
         )

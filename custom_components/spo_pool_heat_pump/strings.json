@@ -25,7 +25,7 @@
       },
       "options_setup": {
         "title": "Options",
-        "description": "{bus_note} Write path defaults to DTU slave 99 — the same frame the factory app sends, and a harmless no-op if no module is present. Switch to slave 2 only if you have no WiFi module and slave 99 writes do nothing. Service settings (H/F/D special-menu parameters) can damage the unit. Leave them off unless you know the OEM values.",
+        "description": "{bus_note} Write path defaults to the second panel (slave 2): Home Assistant answers the board like a second display and hands it changed settings the same way the wired display does. It needs no WiFi module. Slave 99 addresses the factory WiFi module and is unverified. Service settings (H/F/D special-menu parameters) can damage the unit. Leave them off unless you know the OEM values.",
         "data": {
           "name": "Name",
           "write_path": "Write path",
@@ -35,7 +35,7 @@
         },
         "data_description": {
           "name": "How this heat pump appears in Home Assistant.",
-          "write_path": "Keep DTU slave 99 unless you have no WiFi module and writes do nothing; slave 2 answers as the second panel and adds a master to the bus. Do not unplug a live DTU while the path is still slave 99.",
+          "write_path": "Keep second panel (slave 2). It is the mechanism the wired display uses and works with or without a WiFi module. Slave 99 only addresses the factory module and is unverified; panel address 1 is unproven.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1."
@@ -81,7 +81,7 @@
     "step": {
       "init": {
         "title": "SPO Pool Heat Pump options",
-        "description": "Write path: keep DTU slave 99 (same frame as the factory app). Slave 2 only if there is no WiFi module and slave 99 writes do nothing. Do not unplug a live DTU while the path is still slave 99. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)",
+        "description": "Write path: keep second panel (slave 2) — it works with or without a WiFi module. Slave 99 addresses the factory module and is unverified. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)",
         "data": {
           "profile": "Profile",
           "write_path": "Write path",
@@ -94,7 +94,7 @@
         "data_description": {
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "profile": "Same-board badges are listed on each option. Oasis / Warmpool → Hayward. Azuro / Mountfield → MIDA Cosma. SuperMini → PHNIX Mini. Slave 50 → CN13. IPS Pro / InverX → coil map. Not listed? Dump only.",
-          "write_path": "Keep DTU slave 99 unless you have no WiFi module and writes do nothing; slave 2 answers as the second panel and adds a master to the bus. Do not unplug a live DTU while the path is still slave 99.",
+          "write_path": "Keep second panel (slave 2). It is the mechanism the wired display uses and works with or without a WiFi module. Slave 99 only addresses the factory module and is unverified; panel address 1 is unproven.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1.",
           "manual_cop_flow": "When on, COP is calculated from this flow, inlet/outlet ΔT, and electrical power. The controller COP register is ignored.",

@@ -129,7 +129,7 @@ def test_climate_turn_on_writes_power_only() -> None:
     async def send(frame: bytes) -> None:
         sent.append(frame)
 
-    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send)
+    driver = Pc1002BusDriver(load_profile("mida_cosma_pc1002"), send, "dtu_99")  # asserts raw frames
     coord = MagicMock()
     coord.driver = driver
     coord.profile = driver.profile

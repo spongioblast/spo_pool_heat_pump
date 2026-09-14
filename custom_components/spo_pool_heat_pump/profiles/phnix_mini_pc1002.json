@@ -28,10 +28,10 @@
   "driver": {
     "type": "pc1002_bus",
     "write_targets": [
-      "dtu_99",
-      "slave2"
+      "slave2",
+      "dtu_99"
     ],
-    "default_write": "dtu_99",
+    "default_write": "slave2",
     "detect": {
       "firmware_regs": [
         2017,
