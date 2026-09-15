@@ -7,3 +7,4 @@ ha-docker/config/*
 !ha-docker/config/configuration.yaml
 ha-docker/config/.storage/
 *.db
+tools/rs485-dump/dumps/

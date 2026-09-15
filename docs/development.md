@@ -67,11 +67,11 @@ Firmware **V1.0.15** / web **1.0.08**, measured 2026-09-14.
 
 ## Dump vs USB reader
 
-The card **Bus dump** writes the same `.log` / `.bin` dialect as `protocol-analysis/rs485_dump.py` (hex + ASCII, `# idle`, timestamps, optional `# dir=tx`). Feed a `.log` into `analyze_modbus.py` or `dump_replay_server.py` in that lab folder.
+The card **Bus dump** writes the same `.log` / `.bin` dialect as [`tools/rs485-dump`](../tools/rs485-dump/README.md) (hex + ASCII, `# idle`, timestamps, optional `# dir=tx`). Feed a `.log` into `python tools/rs485-dump/analyze.py` or the lab `dump_replay_server.py`.
 
 That is enough to **map registers** on a new pump (dump-only profile, one action at a time, photos). It is not a passive tap:
 
-| | USB `rs485_dump` / `cosmo_watch` | DR164 + HA dump |
+| | USB `tools/rs485-dump` (lab: `cosmo_watch`) | DR164 + HA dump |
 | --- | --- | --- |
 | What it timestamps | UART bytes on the wire | TCP packets after pack + WiFi + LAN |
 | Idle gaps | Real RS-485 silence | Arrival jitter |

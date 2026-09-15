@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `tools/rs485-dump`: listen-only USB tap (UTS-T02). `dump.py` writes the raw `.log`; `analyze.py` is an optional Modbus view. Not in HACS
 - README is the user guide; protocol, write path, DR164 timing, and tests moved to [docs/development.md](docs/development.md)
 - `tools/dr164_event_off.py` (and `.cmd`) turns DR164 Event off over UDP 48899 — same `www.usr.cn` / `+ok` handshake as the README
 - **Settings dialog and `write_register` use the same slave-2 setpoint path as the climate card** (1135–1137 + page-accept), so changing Heat/Cool/Auto setpoint in Settings no longer writes panel-owned 1013 or flashes the old target while 2013 lags. A mode change drops a pending setpoint overlay. `prefer: settings` no longer labels auto as heat from broadcast 2012 before page 1001 arrives. Slave 2 keeps the one-shot FC03 seed of the display at startup (the board pushes pages to panels only when they change) but no longer re-reads it on 3011 flag changes. TCP reconnect is keyed to the last frame of any kind, not the last broadcast, so the board's post-commit pause does not drop the DR164 socket. All-zero 1001/1091/1181 pages are rejected. Poll-master keeps pending if only an extra register fails. Lovelace stale copy no longer says “8 s”.

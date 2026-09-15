@@ -75,6 +75,8 @@ Copy **only** `custom_components/spo_pool_heat_pump` into `<config>/custom_compo
 
 The factory WiFi / DTU port already carries all four pins the DR164 needs — **+**, **A**, **B**, **G** — so the DR164 runs in parallel on that same port and takes its power from the pump's 12 V rail. No separate PSU. Four wires, straight across, one per pin. Do not cut the panel cable.
 
+![USR-DR164 WiFi RS-485 module](docs/images/usr-dr164.png)
+
 ![DR164 + / A / B / G wired in parallel on the heat-pump WiFi / RS-485 port](docs/images/dr164-parallel-tap.png)
 
 
@@ -216,13 +218,13 @@ A dump is a raw copy of the RS-485 bytes Home Assistant sees on the DR164. Use i
 The **?** on that tab is the full checklist. In short:
 
 1. Start the capture first. Write in the note what you are about to do.
-2. One action at a time; wait a few seconds.
-3. Use the heat-pump panel **and** the phone app if both exist. Leave the factory WiFi / DTU plugged in.
-4. Power, Heat/Cool/Auto and each mode’s setpoint, quiet/timers, every on-screen menu. Let the unit actually run.
-5. After each change, screenshot the app or photo the panel (menu name and the value). Name files with clock time or the dump note.
+2. One action at a time. Wait until the unit responds (seconds, sometimes a minute).
+3. Phone app if you have WiFi (**Handy Heat Pump**, **AquaTemp**, **InverGo**): screenshots are enough. Also photo the panel for changes you make there. Leave the factory WiFi / DTU plugged in.
+4. Power, Heat/Cool/Auto and each mode’s setpoint, quiet/timers. Open special menus (`022` / `066` on many PHNIX boards; also try `168` or `0814`) and screenshot every value. Let it actually run (warmup, idle). A reversible flow-fault is useful if there is a flow sensor.
+5. Name files with clock time or the dump note.
 6. Download the `.log` and keep the pictures with it.
 
-Do not change H/F/D service values unless you know the OEM numbers.
+Do not change H/F/D service values unless you know the OEM numbers. Photographing / screenshotting them is enough.
 
 ## Actions
 
@@ -294,6 +296,16 @@ Files in `config/spo_pool_heat_pump_dumps/` are not deleted. Remove those captur
 | Core Modbus / DR164 “Modbus gateway”    | Do not add those                                                                                                 |
 | Add to dashboard only shows Manual YAML | Reload the tab after the restart. Confirm the card JS URL is 200. Do not add a Lovelace resource                  |
 
+
+## Unsupported or incomplete heat pump — need a raw bus dump
+
+This integration only runs pumps whose RS-485 talk we already have a map for. If yours is not in [Which heat pumps](#which-heat-pumps), setup cannot pick a profile, or some functions are not working or are not fully implemented, we need a recording of what the outdoor board and the wired display actually send on the wire.
+
+The card **Bus dump** is Home Assistant listening through the DR164. That is useful once the integration is already talking, but HA is a participant on the bus — it is not a full copy of the cable.
+
+For a new pump, use the listen-only USB tap instead. It records every burst and idle gap and never transmits. Change settings from the phone app if you have WiFi (**Handy Heat Pump**, **AquaTemp**, or **InverGo** are the usual ones) and screenshot every screen — including timers, about/firmware, and any special-menu values behind codes like `022` / `066` / `168`. Wait until the unit actually runs (warmup, idle, a flow-fault if you can do one safely). Send the `.log` with those pictures.
+
+Wiring, adapters, and the full capture list: [RS-485 ModBus dump](tools/rs485-dump/README.md). HACS does not install this tool.
 
 ## License
 

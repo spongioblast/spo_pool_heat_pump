@@ -3,7 +3,10 @@ from pathlib import Path
 CARD = Path(__file__).resolve().parents[1] / "custom_components/spo_pool_heat_pump/www/spo-pool-heat-pump-card.js"
 ICON = Path(__file__).resolve().parents[1] / "custom_components/spo_pool_heat_pump/brand/icon.png"
 WWW = Path(__file__).resolve().parents[1] / "custom_components/spo_pool_heat_pump/www"
-DOCS_WIRING = Path(__file__).resolve().parents[1] / "docs/images/dr164-parallel-tap.png"
+DOCS_IMAGES = Path(__file__).resolve().parents[1] / "docs/images"
+DOCS_WIRING = DOCS_IMAGES / "dr164-parallel-tap.png"
+DOCS_DR164 = DOCS_IMAGES / "usr-dr164.png"
+DOCS_UTS = DOCS_IMAGES / "uts-t02.png"
 
 
 def test_card_bundle_committed() -> None:
@@ -85,10 +88,14 @@ def test_setup_guide_and_wiring_diagram() -> None:
     assert "8899" in text
     assert "Modbus" in text
     assert "docs/images/dr164-parallel-tap.png" in text
+    assert "docs/images/usr-dr164.png" in text
+    assert "tools/rs485-dump/README.md" in text
+    assert "docs/images/uts-t02.png" not in text
     assert not (WWW / "setup.html").exists()
-    assert DOCS_WIRING.exists()
-    assert DOCS_WIRING.stat().st_size > 100
-    assert DOCS_WIRING.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    for png in (DOCS_WIRING, DOCS_DR164, DOCS_UTS):
+        assert png.exists()
+        assert png.stat().st_size > 100
+        assert png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_www_has_no_dump_files() -> None:
