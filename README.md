@@ -6,7 +6,7 @@ Pumps that ship with **Aqua Temp WiFi** already speak **Modbus RTU on RS-485** o
 
 Requires Home Assistant 2026.6.0 or later. You get a Device with `climate`, sensors, switches, and timers, plus a Lovelace card (Circuit or Section schematic). Service-menu values live in the card Settings dialog, not as entities.
 
-**Hardware.** A **USR-DR164** on the factory RS-485 port for Home Assistant. A cheap USB RS-485 stick (**UTS-T02** or similar) if the pump is not fully supported yet or you need to debug. Prefer Ethernet? A **Waveshare RS485 TO ETH** in transparent mode should work too (not live-tested): [Waveshare guide](docs/waveshare.md).
+**Hardware.** A **USR-DR164** on the factory RS-485 port for Home Assistant. A cheap USB RS-485 stick (**UTS-T02** or similar) if the pump is not fully supported yet or you need to debug. Prefer a cable? See [Ethernet instead of WiFi](#ethernet-instead-of-wifi).
 
 **New or incomplete pumps.** Start with a listen-only wire capture: [RS-485 ModBus dump](tools/rs485-dump/README.md). Once you have dumps you may share them and [open a feature request](https://github.com/spongioblast/spo_pool_heat_pump/issues/new).
 
@@ -82,6 +82,15 @@ On the DR164 web UI (save and restart after these pages):
    Or from this repository (Python 3, nothing to install): `python tools/dr164_event_off.py 192.168.x.x` — on Windows, `tools\dr164_event_off.cmd 192.168.x.x`. No IP lists modules that answer a broadcast. `--check` queries only.
 
 Port `8899` is ready. Use the reserved LAN IP in the next step.
+
+## Ethernet instead of WiFi
+
+Any RS-485-to-Ethernet box in transparent **TCP Server** mode works the same way. Not live-tested yet:
+
+- **USR-DR134** / **USR-DR302** — [setup guide](docs/usr-ethernet.md)
+- **Waveshare RS485 TO ETH (B)**, 1- or 4-channel — [setup guide](docs/waveshare.md)
+
+Wire it to the same four pins, use its IP and port in setup, and turn off **Reboot DR164 if the bus stays silent** under Configure.
 
 ## Add it to Home Assistant
 
