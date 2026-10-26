@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from spo_pool_heat_pump.dr164_at import ACK, AT_Z, SEARCH, Dr164AtError, reboot_dr164
+from spo_pool_heat_pump.dr164_at import ACK, AT_Z, SEARCH, Dr164NoSearchReply, reboot_dr164
 
 
 class _Echo(asyncio.DatagramProtocol):
@@ -43,7 +43,7 @@ def test_reboot_sends_search_ack_then_atz() -> None:
 
 def test_reboot_times_out_without_banner() -> None:
     async def run() -> None:
-        with pytest.raises(Dr164AtError, match="www.usr.cn"):
+        with pytest.raises(Dr164NoSearchReply, match="www.usr.cn"):
             await reboot_dr164("127.0.0.1", port=1, timeout_s=0.05, ack_pause_s=0.0)
 
     asyncio.run(run())

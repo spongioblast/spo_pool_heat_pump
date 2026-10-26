@@ -23,6 +23,10 @@ STALE_REPLY_S = 0.200
 # jam. Cooldown covers the ~20 s module boot plus one extra stale window.
 DR164_SILENCE_REBOOT_S = 60.0
 DR164_REBOOT_COOLDOWN_S = 120.0
+# A live DR164 has answered www.usr.cn every time while TCP was up. This many
+# unanswered searches in a row means a non-USR gateway (Waveshare etc.); stop
+# sending AT+Z until the entry reloads instead of warning every cooldown.
+DR164_SEARCH_MISSES_MAX = 3
 SENSOR_PUBLISH_INTERVAL_S = 15.0
 DETECT_LISTEN_S = 5.0
 BROADCAST_START = 2001

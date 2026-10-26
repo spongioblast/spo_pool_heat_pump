@@ -309,6 +309,35 @@ def test_dr164_atz_fires_when_bus_dead_at_startup() -> None:
     asyncio.run(run())
 
 
+def test_dr164_atz_stops_after_gateway_never_answers_search() -> None:
+    """Waveshare and other non-USR gateways have no UDP 48899 AT. Back off
+    after DR164_SEARCH_MISSES_MAX unanswered searches instead of warning
+    every cooldown forever."""
+    from spo_pool_heat_pump.dr164_at import Dr164NoSearchReply
+
+    async def run() -> None:
+        hass = MagicMock()
+        hass.loop = asyncio.get_running_loop()
+        client = MagicMock()
+        client.connected = True
+        client.reconnect = AsyncMock()
+        reboot = AsyncMock(side_effect=Dr164NoSearchReply("no reply to www.usr.cn"))
+        coord = _coord(hass, client)
+        with (
+            patch("spo_pool_heat_pump.coordinator.STALE_SECONDS", 0.02),
+            patch("spo_pool_heat_pump.coordinator.DR164_SILENCE_REBOOT_S", 0.03),
+            patch("spo_pool_heat_pump.coordinator.DR164_REBOOT_COOLDOWN_S", 0.0),
+            patch("spo_pool_heat_pump.coordinator.DR164_SEARCH_MISSES_MAX", 3),
+            patch("spo_pool_heat_pump.coordinator.reboot_dr164", reboot),
+        ):
+            coord._push(HeatPumpState(available=True, serial="B99"))
+            await asyncio.sleep(0.4)
+            assert reboot.await_count == 3
+        coord._stale_handle.cancel()
+
+    asyncio.run(run())
+
+
 def test_dr164_atz_skipped_when_tcp_down() -> None:
     async def run() -> None:
         hass = MagicMock()

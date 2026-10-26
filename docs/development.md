@@ -92,4 +92,6 @@ Core Modbus — and gateway mode on the DR164 — assume Home Assistant is the o
 
 The DR164 must stay a **transparent TCP byte pipe** (raw RTU, 20 ms idle framing). Core Modbus-over-TCP wants MBAP / gateway framing. This client also drops non-CRC noise (heartbeat) and waits for a quiet gap before TX.
 
+Any other transparent TCP Server works the same way at the transport level — nothing in `transport/tcp.py` is USR-specific. Only the silent-bus `AT+Z` and `tools/dr164_event_off.py` speak USR's UDP 48899; on a non-USR gateway the coordinator stops after `DR164_SEARCH_MISSES_MAX` unanswered `www.usr.cn` searches. Waveshare RS485 TO ETH settings (not live-tested): [waveshare.md](waveshare.md).
+
 Fairland CN13 / IPS Pro *are* polled, but still through this client so one integration, one socket, and the same write / dump / card path. Do not add both.

@@ -20,6 +20,7 @@ from .const import (
     CONF_WRITE_PATH,
     DOMAIN,
     DR164_REBOOT_COOLDOWN_S,
+    DR164_SEARCH_MISSES_MAX,
     DR164_SILENCE_REBOOT_S,
     STALE_SECONDS,
     WRITE_PATH_SLAVE2,
@@ -28,7 +29,7 @@ from .const import (
     reload_option_fingerprint,
     service_menu_writes_enabled,
 )
-from .dr164_at import Dr164AtError, reboot_dr164
+from .dr164_at import Dr164AtError, Dr164NoSearchReply, reboot_dr164
 from .cop import cop_options
 from .drivers import HeatPumpDriver, HeatPumpState, build_driver
 from .dump import (
@@ -140,6 +141,7 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
         self._last_frame_at: float | None = None
         self._started_at = time.monotonic()
         self._last_dr164_reboot_at: float | None = None
+        self._dr164_search_misses = 0
         self._settings_refresh_once = False
         self.reload_fingerprint = reload_option_fingerprint(entry.data, entry.options)
         self.force_seq = 0
@@ -351,6 +353,8 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
             return False
         if not reboot_dr164_on_silence_enabled(self.entry.data, self.entry.options):
             return False
+        if self._dr164_search_misses >= DR164_SEARCH_MISSES_MAX:
+            return False
         if not getattr(self.client, "connected", False):
             return False
         if self._silence_s() < DR164_SILENCE_REBOOT_S:
@@ -381,11 +385,26 @@ class PoolHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpState]):
     async def _async_reboot_dr164(self, host: str) -> None:
         try:
             banner = await reboot_dr164(host)
+        except Dr164NoSearchReply as err:
+            self._dr164_search_misses += 1
+            if self._dr164_search_misses >= DR164_SEARCH_MISSES_MAX:
+                _LOGGER.warning(
+                    "Gateway at %s never answered the USR-DR164 search (%d tries); "
+                    "silent-bus AT+Z is off until reload. Expected on Waveshare and "
+                    "other non-USR gateways — turn off 'Reboot DR164 if the bus "
+                    "stays silent' under Configure.",
+                    host,
+                    self._dr164_search_misses,
+                )
+            else:
+                _LOGGER.warning("DR164 AT+Z handshake failed: %s", err)
         except Dr164AtError as err:
+            self._dr164_search_misses = 0
             _LOGGER.warning("DR164 AT+Z handshake failed: %s", err)
         except Exception:  # noqa: BLE001
             _LOGGER.warning("DR164 AT+Z failed", exc_info=True)
         else:
+            self._dr164_search_misses = 0
             _LOGGER.info("DR164 AT+Z sent (%s)", banner)
 
     def _mark_stale(self) -> None:

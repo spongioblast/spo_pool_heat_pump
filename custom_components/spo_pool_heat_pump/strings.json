@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "SPO Pool Heat Pump",
-        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full walkthrough (wiring photo, Wi-Fi, work mode): [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)\n\n1. **Wire:** parallel tap +, A, B, and G on the same four pins as the factory WiFi. A separate DC− screw joins G. Swap A/B if CRC fails.\n2. **LAN:** phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA to the home Wi-Fi; reserve the DHCP lease.\n3. **Work mode:** Serial Port **9600 8N1**, Packaging Interval **20 ms**, Length **1400**. Socket A **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.\n\nEnter that reserved IP below. One Home Assistant client only. Serial USB and Modbus-TCP gateways are not available in v1.",
+        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full walkthrough (wiring photo, Wi-Fi, work mode): [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)\n\n1. **Wire:** parallel tap +, A, B, and G on the same four pins as the factory WiFi. A separate DC− screw joins G. Swap A/B if CRC fails.\n2. **LAN:** phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA to the home Wi-Fi; reserve the DHCP lease.\n3. **Work mode:** Serial Port **9600 8N1**, Packaging Interval **20 ms**, Length **1400**. Socket A **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.\n\nWired instead: a Waveshare RS485 TO ETH in transparent TCP Server mode also works — [Waveshare guide](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/docs/waveshare.md).\n\nEnter that reserved IP below. One Home Assistant client only. Serial USB and Modbus-TCP gateways are not available in v1.",
         "data": {
           "host": "DR164 host (reserved LAN IP)",
           "port": "Port (8899)"
         },
         "data_description": {
           "host": "Reserved LAN IP of the USR-DR164. One Home Assistant TCP client only.",
-          "port": "Socket A port. Factory default is 8899."
+          "port": "Socket A port. DR164 factory default is 8899. Waveshare RS485 TO ETH: channel 1 is 4196."
         }
       },
       "profile": {
@@ -37,7 +37,7 @@
         "data_description": {
           "name": "How this heat pump appears in Home Assistant.",
           "write_path": "Keep second panel (slave 2). It is the mechanism the wired display uses and works with or without a WiFi module. Slave 99 only addresses the factory module and is mode-only on this bus; panel address 1 is unproven.",
-          "reboot_dr164_on_silence": "If no RS-485 frame arrives for 60 s while TCP is still up, send AT+Z (UDP 48899). Recovers a DR164 that left its RS-485 driver enabled after a slave-2 reply. Does not write the heat pump. Leave on.",
+          "reboot_dr164_on_silence": "If no RS-485 frame arrives for 60 s while TCP is still up, send AT+Z (UDP 48899). Recovers a DR164 that left its RS-485 driver enabled after a slave-2 reply. Does not write the heat pump. Leave on for a USR-DR164; turn off for Waveshare or other gateways.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1."
@@ -52,7 +52,7 @@
         },
         "data_description": {
           "host": "Reserved LAN IP of the USR-DR164. One Home Assistant TCP client only.",
-          "port": "Socket A port. Factory default is 8899."
+          "port": "Socket A port. DR164 factory default is 8899. Waveshare RS485 TO ETH: channel 1 is 4196."
         }
       }
     },
@@ -98,7 +98,7 @@
           "service_menu_writes": "Leave this off unless you know the OEM numbers. Wrong H, F, or D values can damage or brick the heat pump.",
           "profile": "Same-board badges are listed on each option. Oasis / Warmpool → Hayward. Azuro / Mountfield → MIDA Cosma. SuperMini → PHNIX Mini. Slave 50 → CN13. IPS Pro / InverX → coil map. Not listed? Dump only.",
           "write_path": "Keep second panel (slave 2). It is the mechanism the wired display uses and works with or without a WiFi module. Slave 99 only addresses the factory module and is mode-only on this bus; panel address 1 is unproven.",
-          "reboot_dr164_on_silence": "If no RS-485 frame arrives for 60 s while TCP is still up, send AT+Z (UDP 48899). Recovers a DR164 that left its RS-485 driver enabled after a slave-2 reply. Does not write the heat pump. Leave on.",
+          "reboot_dr164_on_silence": "If no RS-485 frame arrives for 60 s while TCP is still up, send AT+Z (UDP 48899). Recovers a DR164 that left its RS-485 driver enabled after a slave-2 reply. Does not write the heat pump. Leave on for a USR-DR164; turn off for Waveshare or other gateways.",
           "poll_interval": "How often Fairland-style units are polled. Cosma and Mini broadcast and ignore this.",
           "poll_slave": "Fairland CN13 menu H37. Default 50. IPS Pro is usually 1.",
           "manual_cop_flow": "When on, COP is calculated from this flow, inlet/outlet ΔT, and electrical power. The controller COP register is ignored.",

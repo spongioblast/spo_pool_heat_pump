@@ -31,6 +31,11 @@ class Dr164AtError(Exception):
     """Handshake or AT command failed (module down, or +ok not sent)."""
 
 
+class Dr164NoSearchReply(Dr164AtError):
+    """Nothing answered ``www.usr.cn``. With TCP up this is usually a non-USR
+    gateway (Waveshare and other transparent TCP servers have no USR AT)."""
+
+
 class _QueueProtocol(asyncio.DatagramProtocol):
     def __init__(self) -> None:
         self.queue: asyncio.Queue[bytes] = asyncio.Queue()
@@ -63,7 +68,7 @@ async def reboot_dr164(
         try:
             banner = await asyncio.wait_for(proto.queue.get(), timeout_s)
         except TimeoutError as err:
-            raise Dr164AtError(
+            raise Dr164NoSearchReply(
                 f"no reply to www.usr.cn at {host}:{port} — same LAN, UDP 48899"
             ) from err
         transport.sendto(ACK)
