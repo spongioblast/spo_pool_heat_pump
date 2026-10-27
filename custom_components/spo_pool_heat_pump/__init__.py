@@ -6,10 +6,11 @@ from .const import DOMAIN
 
 try:
     from homeassistant.helpers import config_validation as cv
-
-    CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 except ImportError:
-    CONFIG_SCHEMA = None
+    cv = None
+
+# hassfest only sees a module-level assignment, not one inside the try.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN) if cv else None
 
 
 def _register_dump_http(hass) -> None:
