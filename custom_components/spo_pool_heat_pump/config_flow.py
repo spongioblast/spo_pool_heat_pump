@@ -34,6 +34,13 @@ from .drivers.detect import DetectFailed, detect_profile, detect_reason
 from .profiles import async_warm_profiles, choice_map, resolve_profile_id
 from .transport.tcp import TcpRtuClient
 
+# hassfest rejects URLs inside strings.json; links come in as placeholders.
+_README_URL = "https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md"
+_DOC_LINKS = {
+    "readme_url": _README_URL,
+    "ethernet_url": f"{_README_URL}#ethernet-instead-of-wifi",
+}
+
 
 def _profile_choices() -> dict[str, str]:
     return choice_map()
@@ -66,6 +73,7 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders=_DOC_LINKS,
         )
 
     async def async_step_detect(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -83,6 +91,7 @@ class PoolHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
                     }
                 ),
                 errors={"base": "cannot_connect"},
+                description_placeholders=_DOC_LINKS,
             )
         self._suggested = suggested
         self._detect_extra = extra
@@ -266,4 +275,6 @@ class PoolHeatPumpOptionsFlow(OptionsFlow):
                 CONF_WATER_FLOW_M3H,
                 default=entry.options.get(CONF_WATER_FLOW_M3H, entry.data.get(CONF_WATER_FLOW_M3H, 0)),
             )] = vol.All(vol.Coerce(float), vol.Range(min=0, max=WATER_FLOW_MAX))
-        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))
+        return self.async_show_form(
+            step_id="init", data_schema=vol.Schema(schema), description_placeholders=_DOC_LINKS
+        )

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "SPO Pool Heat Pump",
-        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full walkthrough (wiring photo, Wi-Fi, work mode): [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)\n\n1. **Wire:** parallel tap +, A, B, and G on the same four pins as the factory WiFi. A separate DC− screw joins G. Swap A/B if CRC fails.\n2. **LAN:** phone joins `USR-DR164-xxxx` → `http://10.10.100.254` → `admin`/`admin`. Change the password. STA to the home Wi-Fi; reserve the DHCP lease.\n3. **Work mode:** Serial Port **9600 8N1**, Packaging Interval **20 ms**, Length **1400**. Socket A **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.\n\nWired instead: a USR-DR134 / DR302 or Waveshare RS485 TO ETH in transparent TCP Server mode also works — [Ethernet instead of WiFi](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md#ethernet-instead-of-wifi).\n\nEnter that reserved IP below. One Home Assistant client only. Serial USB and Modbus-TCP gateways are not available in v1.",
+        "description": "This integration speaks Modbus RTU on RS-485. Wire and join the USR-DR164 first. Full walkthrough (wiring photo, Wi-Fi, work mode): [README]({readme_url})\n\n1. **Wire:** parallel tap +, A, B, and G on the same four pins as the factory WiFi. A separate DC− screw joins G. Swap A/B if CRC fails.\n2. **LAN:** phone joins `USR-DR164-xxxx` → `10.10.100.254` → `admin`/`admin`. Change the password. STA to the home Wi-Fi; reserve the DHCP lease.\n3. **Work mode:** Serial Port **9600 8N1**, Packaging Interval **20 ms**, Length **1400**. Socket A **TCP Server**, port **8899**. Not Modbus gateway, MQTT, HTTP, PUSR cloud, heartbeat, or Event.\n\nWired instead: a USR-DR134 / DR302 or Waveshare RS485 TO ETH in transparent TCP Server mode also works — [Ethernet instead of WiFi]({ethernet_url}).\n\nEnter that reserved IP below. One Home Assistant client only. Serial USB and Modbus-TCP gateways are not available in v1.",
         "data": {
           "host": "DR164 host (reserved LAN IP)",
           "port": "Port (8899)"
@@ -57,7 +57,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot reach the DR164. Confirm the reserved LAN IP, Socket A is TCP Server on port 8899, the pump is powered, and try swapping RS-485 A/B. See https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md"
+      "cannot_connect": "Cannot reach the DR164. Confirm the reserved LAN IP, Socket A is TCP Server on port 8899, the pump is powered, and try swapping RS-485 A/B. More in the README under Troubleshooting."
     },
     "abort": {
       "already_configured": "This heat pump is already configured.",
@@ -83,7 +83,7 @@
     "step": {
       "init": {
         "title": "SPO Pool Heat Pump options",
-        "description": "Write path: keep second panel (slave 2) — it works with or without a WiFi module. Slave 99 addresses the factory module and is mode-only on this bus. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: [README](https://github.com/spongioblast/spo_pool_heat_pump/blob/main/README.md)",
+        "description": "Write path: keep second panel (slave 2) — it works with or without a WiFi module. Slave 99 addresses the factory module and is mode-only on this bus. Service settings stay off unless you intend to change H/F/D special-menu values. Wiring and DR164 steps: [README]({readme_url})",
         "data": {
           "profile": "Profile",
           "write_path": "Write path",
