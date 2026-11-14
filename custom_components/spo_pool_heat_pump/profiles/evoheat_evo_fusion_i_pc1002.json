@@ -1,0 +1,302 @@
+{
+  "identity": {
+    "id": "evoheat_evo_fusion_i_pc1002",
+    "brand": "EvoHeat",
+    "model": "Evo Fusion-i",
+    "family": "pc1002",
+    "verification": "community",
+    "source": "protocol-analysis/dumps/20261104_121425 EvoHeat Evo Fusion-i (USB tap, panel power/mode/setpoint/quiet changes, compressor start)",
+    "connector": "RS-485 on the display bus"
+  },
+  "link": {
+    "baud": 9600,
+    "parity": "N",
+    "stop_bits": 1,
+    "slaves": {
+      "0": "broadcast",
+      "1": "panel",
+      "2": "second UI",
+      "66": "polled, never answered"
+    }
+  },
+  "driver": {
+    "type": "pc1002_bus",
+    "write_targets": [
+      "slave2",
+      "panel_1"
+    ],
+    "default_write": "slave2",
+    "power_also_write": [1014],
+    "setpoint_also_write": [1013],
+    "detect": {
+      "all": { "2084": 156 },
+      "zero": [2089, 2017]
+    },
+    "broadcast": {
+      "start": 2001,
+      "qty": 90
+    },
+    "settings": {
+      "slave": 1,
+      "pages": [
+        {
+          "start": 1001,
+          "qty": 90
+        },
+        {
+          "start": 1091,
+          "qty": 90
+        },
+        {
+          "start": 3001,
+          "qty": 30
+        }
+      ],
+      "idle_s": 0.05,
+      "timeout_s": 0.8,
+      "flags": {
+        "reg": 3011,
+        "bits": { "1": 1001, "4": 1001, "32": 1091, "64": 1091, "32768": "all" }
+      },
+      "write_flags": {
+        "pages": { "1001": 1, "1091": 32 },
+        "registers": { "1076": 4, "1135": 64, "1136": 64, "1137": 64 }
+      }
+    }
+  },
+  "modes": [
+    "heat",
+    "cool",
+    "auto"
+  ],
+  "enums": {
+    "mode": {
+      "0": "cool",
+      "1": "heat",
+      "2": "auto"
+    },
+    "power": {
+      "0": "off",
+      "1": "on"
+    }
+  },
+  "registers": {
+    "power": {
+      "reg": 2011,
+      "write": 1011,
+      "type": "bool"
+    },
+    "mode": {
+      "reg": 2012,
+      "write": 1012,
+      "prefer": "settings",
+      "enum": "mode",
+      "type": "enum"
+    },
+    "active_mode": {
+      "reg": 2012,
+      "enum": "mode",
+      "type": "enum"
+    },
+    "setpoint": {
+      "write": 1013,
+      "prefer": "settings",
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_cool": {
+      "write": 1135,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_heat": {
+      "write": 1136,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "setpoint_auto": {
+      "write": 1137,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "silent": {
+      "reg": 2064,
+      "write": 1076,
+      "type": "bool",
+      "nonzero": true
+    },
+    "silent_timer": {
+      "write": 1072,
+      "type": "bool"
+    },
+    "silent_timer_start_h": {
+      "write": 1068,
+      "type": "u16"
+    },
+    "silent_timer_stop_h": {
+      "write": 1069,
+      "type": "u16"
+    },
+    "timer1_on": {
+      "write": 1158,
+      "type": "bool"
+    },
+    "timer1_off": {
+      "write": 1159,
+      "type": "bool"
+    },
+    "timer1_on_h": {
+      "write": 1150,
+      "type": "u16"
+    },
+    "timer1_on_min": {
+      "write": 1151,
+      "type": "u16"
+    },
+    "timer1_off_h": {
+      "write": 1152,
+      "type": "u16"
+    },
+    "timer1_off_min": {
+      "write": 1153,
+      "type": "u16"
+    },
+    "timer2_on": {
+      "write": 1160,
+      "type": "bool"
+    },
+    "timer2_off": {
+      "write": 1161,
+      "type": "bool"
+    },
+    "timer2_on_h": {
+      "write": 1154,
+      "type": "u16"
+    },
+    "timer2_on_min": {
+      "write": 1155,
+      "type": "u16"
+    },
+    "timer2_off_h": {
+      "write": 1156,
+      "type": "u16"
+    },
+    "timer2_off_min": {
+      "write": 1157,
+      "type": "u16"
+    },
+    "t_inlet": {
+      "reg": 2046,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_outlet": {
+      "reg": 2047,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_ambient": {
+      "reg": 2049,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_coil": {
+      "reg": 2048,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "t_exhaust": {
+      "reg": 2050,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "power_kw": {
+      "reg": 2055,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "energy_24h_kwh": {
+      "reg": 2057,
+      "scale": 0.1,
+      "type": "i16"
+    },
+    "comp_hz": {
+      "reg": 2021,
+      "type": "u16"
+    },
+    "fan_rpm": {
+      "reg": 2067,
+      "type": "u16"
+    },
+    "serial": {
+      "reg": 2001,
+      "type": "ascii",
+      "count": 7
+    },
+    "fw_main": {
+      "reg": 2084,
+      "type": "u16"
+    },
+    "outputs": {
+      "reg": 2019,
+      "bits": {
+        "compressor": 0,
+        "water_pump": 1,
+        "four_way_valve": 2,
+        "high_fan": 3,
+        "low_fan": 4
+      },
+      "type": "bits"
+    },
+    "faults": {
+      "regs": [2074, 2075, 2076, 2077],
+      "type": "faults",
+      "file": "_faults_pc1002.json"
+    },
+    "clock": { "reg": 3015, "count": 3, "type": "bcd_hms" },
+    "t_suction": { "reg": 2045, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "superheat": { "reg": 2060, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "ac_voltage": { "reg": 2063, "type": "u16", "unit": "V",
+      "entity": { "platform": "sensor", "device_class": "voltage", "category": "diagnostic", "enabled": false } },
+    "dc_bus": { "reg": 2069, "type": "u16", "unit": "V",
+      "entity": { "platform": "sensor", "device_class": "voltage", "category": "diagnostic", "enabled": false } },
+    "phase_current": { "reg": 2022, "type": "u16", "scale": 0.1, "unit": "A",
+      "entity": { "platform": "sensor", "device_class": "current", "category": "diagnostic", "enabled": false } },
+    "ipm_temp": { "reg": 2023, "type": "i16", "scale": 0.1, "unit": "°C",
+      "entity": { "platform": "sensor", "device_class": "temperature", "category": "diagnostic", "enabled": false } },
+    "eev_steps": { "reg": 2020, "type": "u16",
+      "entity": { "platform": "sensor", "category": "diagnostic", "enabled": false } },
+    "comp_hz_target": { "reg": 2085, "type": "u16", "unit": "Hz",
+      "entity": { "platform": "sensor", "device_class": "frequency", "category": "diagnostic", "enabled": false } },
+    "cop": { "reg": 2040, "type": "i16", "scale": 0.1,
+      "entity": { "platform": "sensor", "category": "diagnostic", "enabled": false } },
+    "switches": { "reg": 2034, "type": "bits",
+      "bits": { "high_pressure": 0, "low_pressure": 1, "flow_switch": 2, "remote": 3 },
+      "entity": { "platform": "binary_sensor", "category": "diagnostic", "enabled": false } }
+  },
+  "service_menu": {
+    "file": "_service_menu_pc1002.json"
+  },
+  "hz_max": {
+    "heat": "h08_max_freq_heat",
+    "cool": "h09_max_freq_cool",
+    "default": {
+      "cool": 55,
+      "heat": 90,
+      "auto": 90
+    }
+  },
+  "fixtures": {
+    "frames": {
+      "broadcast_heating": "00 10 07 D1 00 5A B4 57 46 32 34 30 31 30 38 30 31 35 31 00 00 00 00 01 01 07 D1 00 01 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 0B 00 AC 00 3E 00 1C 01 7C 00 01 00 00 00 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 41 01 04 01 13 00 4B 00 D2 02 4E 00 29 00 00 00 00 00 00 00 04 5A A5 00 00 00 00 00 00 FF F6 02 6E 00 14 00 F8 00 00 00 00 00 00 02 6C 00 00 01 72 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4B 00 00 00 0B 00 9C 00 4B 00 2D 00 00 00 00 00 00 00 00 96 3F",
+      "page_1001_heat_28": "00 10 03 E9 00 5A B4 57 46 32 34 30 31 30 38 30 31 35 31 00 00 00 00 01 01 03 E9 00 01 00 01 01 18 00 01 00 01 00 FF 00 00 00 01 00 01 00 14 00 14 00 50 00 41 00 14 00 C0 00 2D 00 46 00 0F 00 C8 00 02 00 96 00 32 00 41 01 5E 01 AE 00 37 00 96 FF 9C 00 50 01 2C 01 AE 00 41 00 C8 00 00 00 14 FF 88 00 34 00 03 01 90 00 96 00 96 00 46 00 64 00 14 00 19 00 1E 00 5F 00 5A 01 2C 00 6E 00 00 00 64 03 20 00 32 03 20 00 32 02 26 00 00 00 06 00 32 01 F4 00 00 00 00 00 32 02 58 00 00 00 01 00 00 00 00 00 00 00 02 00 1E 00 01 00 01 00 00 00 0A 00 0C 00 0F 00 11 00 00 20 AF",
+      "page_1091_heat_28": "00 10 04 43 00 5A B4 57 46 32 34 30 31 30 38 30 31 35 31 00 00 00 00 01 01 04 43 FF CE 00 37 00 82 00 2D 00 08 00 00 00 14 00 AA 00 96 00 14 FF 6A 00 20 00 00 00 00 00 00 00 01 00 14 00 C8 00 46 01 E0 01 E0 02 58 00 02 00 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 09 01 18 01 13 00 0A 00 0A 00 50 01 5E 00 96 01 7C FF CE 00 00 00 0A 00 3C 00 01 00 CD 00 08 00 00 00 12 00 00 00 00 00 00 00 00 00 00 00 01 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 46 00 00 00 00 00 00 00 00 00 00 00 00 A2 E0",
+      "panel_flag_setpoint": "01 03 3C 57 46 32 34 30 31 30 38 30 31 35 31 00 00 00 00 01 01 07 D1 00 41 00 00 00 00 00 00 00 12 00 15 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 D6 1F",
+      "poll_slave2": "02 03 0B B9 00 1E 16 30"
+    },
+    "dump": "protocol-analysis/dumps/20261104_121425 EvoHeat Evo Fusion-i"
+  },
+  "notes": "Same 2001×90 broadcast and slave-2 slot as mida_cosma_pc1002, but broadcast 2013 is always 0: the target comes from page word 1013, which the panel keeps equal to the selected mode's 1135-1137. The display raises 3011 0x0001 for power/mode/1013 and 0x0004 for quiet, so write_flags and setpoint_also_write mirror that. No WiFi/DTU slave 99 was seen, so dtu_99 is not offered. No page 1181 traffic."
+}

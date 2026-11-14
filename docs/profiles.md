@@ -60,7 +60,15 @@ Climate modes come from `modes`. Sensors and switches appear when the register k
 
 ## Driver
 
-`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Default is slave 2 on every PC1002 profile; `dtu_99` is opt-in and mode-only on this bus. `driver.settings.pages` seed the service-menu cache: one FC03 read of the display at startup (and once more for an unseeded page before a write); the board's pushes keep the copies fresh. Pushes to panels only come when a page changed, so the startup read is needed on slave 2 too. `settings.flags` (3011 bits) re-reads those pages on the DTU/panel_1 paths when the panel says they changed (`4` → 1001, `32` → 1091 timers, `64` → 1091 setpoints). Cosma and Hayward also set `power_also_write: [1014]`.
+`pc1002_bus` sniffs `driver.broadcast` (`start` / `qty`, required). `write_targets` lists `dtu_99` / `slave2` / `panel_1`. Default is slave 2 on every PC1002 profile; `dtu_99` is opt-in and mode-only on this bus. Leave `dtu_99` out when the dump never shows slave 99.
+
+Panels on the same board differ in which 3011 bit goes with which word. Copy the bits from the dump's 3001 replies (the wired display's flag right before the board reads a page); do not assume Cosma's. `driver.settings.write_flags` sets them for slave 2: `pages` is the default bit per page, `registers` overrides single words. Without it slave 2 uses the Cosma display's bits (`1001` → `0x0004`, `1091` → `0x0020`, `1135`–`1137` → `0x0040`). EvoHeat:
+
+```json
+"write_flags": { "pages": { "1001": 1, "1091": 32 }, "registers": { "1076": 4, "1135": 64, "1136": 64, "1137": 64 } }
+```
+
+`setpoint_also_write` lists page words the panel keeps equal to the selected mode's 1135–1137 (EvoHeat `[1013]`): a setpoint for the selected mode is written there too, and a mode change copies the new mode's setpoint into it. Cosma does not set it — its 1013 is panel-owned and writing it moves nothing. If broadcast 2013 stays 0 (EvoHeat), read the target from the page: `"setpoint": { "write": 1013, "prefer": "settings", ... }`. `driver.settings.pages` seed the service-menu cache: one FC03 read of the display at startup (and once more for an unseeded page before a write); the board's pushes keep the copies fresh. Pushes to panels only come when a page changed, so the startup read is needed on slave 2 too. `settings.flags` (3011 bits) re-reads those pages on the DTU/panel_1 paths when the panel says they changed (`4` → 1001, `32` → 1091 timers, `64` → 1091 setpoints). Cosma and Hayward also set `power_also_write: [1014]`.
 
 `poll_master` uses `driver.reads`: `{name, fc, slave, start, qty}`. IPS Pro outputs must use `block` / `offset` so coil polls decode. The integration option **Modbus slave (H37)** overrides `poll_slave` and every `reads[].slave` (Fairland CN13 default 50). Do not point `faults.file` at `_faults_pc1002.json` unless a dump proved those bits. CN13 keeps the 2074–2077 words and shows raw `reg.bit` codes until someone maps them.
 
@@ -93,11 +101,21 @@ The card Settings dialog (and optional `spo-pool-heat-pump-settings-card`) plus 
 | `mida_cosma_pc1002` | MIDA | Cosma | pc1002 | verified (dump 20260906_104432; booklet Cosma 13) |
 | `hayward_pc1002` | Hayward | PC1002 | pc1002 | community |
 | `phnix_mini_pc1002` | PHNIX | Mini | pc1002 | community |
+| `evoheat_evo_fusion_i_pc1002` | EvoHeat | Evo Fusion-i | pc1002 | community (dump 20261104_121425) |
 | `fairland_pc1004_cn13` | Fairland | PC1004 CN13 | pc1004 | community |
 | `fairland_ips_pro_coils` | Fairland | IPS Pro | fairland_coils | community |
 | `unknown_dump_only` | Unknown | Dump only | listen | experimental (no map) |
 
-Detection: 5 s listen for a 2001×90 broadcast. Firmware 713/772 → MIDA Cosma; Mini firmware at 2017 → PHNIX Mini; any other 2001 → Hayward (user can override). Silent bus probes slave 50 FC03 1011×3, then slave 1 FC01 coil 0. If nothing matches, the picker suggests **dump only**. Old ids (`cosmo_pc1002`, `phnix_mini_rs485`, `fairland_legacy_coils`) still load.
+Detection: 5 s listen for a 2001×90 broadcast, then each `pc1002_bus` profile's `driver.detect` rule is checked against it. No Python per pump. Rule keys (a missing word counts as 0):
+
+| Key | Matches when |
+| --- | --- |
+| `any` | at least one `{"register": value}` equals |
+| `all` | every `{"register": value}` equals |
+| `zero` / `nonzero` | each listed register is / is not 0 |
+| `fallback` | `true` — used only when no other rule matched (Hayward) |
+
+The most specific match wins (more conditions first). Shipped: Cosma `{"any": {"2089": 713, "2084": 772}}`, Mini `{"nonzero": [2017], "zero": [2089]}`, EvoHeat `{"all": {"2084": 156}, "zero": [2089, 2017]}`. Name a broadcast fixture `broadcast_*` and the tests check it detects as its own profile. Every PC1002 profile must have a rule; exactly one is `fallback`. The user can always override the pick. Silent bus probes slave 50 FC03 1011×3, then slave 1 FC01 coil 0. If nothing matches, the picker suggests **dump only**. Old ids (`cosmo_pc1002`, `phnix_mini_rs485`, `fairland_legacy_coils`) still load.
 
 ## Same bus, no extra JSON
 
@@ -108,6 +126,7 @@ A new file is only for a **different map or talk pattern**. Same-board badges go
 | MIDA Cosma, Azuro, Mountfield | `mida_cosma_pc1002` |
 | Hayward, Oasis, Warmpool, ECPI, irriPool | `hayward_pc1002` |
 | PHNIX Mini / SuperMini / SpecialLine, Thermotec | `phnix_mini_pc1002` |
+| EvoHeat Evo Fusion-i | `evoheat_evo_fusion_i_pc1002` |
 | Fairland / Norsup CN13 (slave 50, poll) | `fairland_pc1004_cn13` |
 | Fairland IPS Pro / InverX / IPHCR (old coils) | `fairland_ips_pro_coils` |
 | Not listed / silent or unknown bus | `unknown_dump_only` |

@@ -38,7 +38,7 @@
       1014
     ],
     "detect": {
-      "family": "pc1002"
+      "fallback": true
     },
     "broadcast": {
       "start": 2001,

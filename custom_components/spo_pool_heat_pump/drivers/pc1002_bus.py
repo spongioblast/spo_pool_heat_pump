@@ -71,7 +71,11 @@ class Pc1002BusDriver(HeatPumpDriver):
         self._broadcast_qty = int(spec.get("qty", BROADCAST_QTY))
         self.state = HeatPumpState()
         self.settings = SettingsCache(broadcast_start=self._broadcast_start)
-        self.slave2 = Slave2Responder(broadcast_start=self._broadcast_start)
+        settings_spec = (profile.get("driver") or {}).get("settings") or {}
+        self.slave2 = Slave2Responder(
+            broadcast_start=self._broadcast_start,
+            write_flags=settings_spec.get("write_flags"),
+        )
         self._reply_event = asyncio.Event()
         self._page_seeded = asyncio.Event()
         self._bus_lock = asyncio.Lock()
@@ -147,6 +151,23 @@ class Pc1002BusDriver(HeatPumpDriver):
         # per-mode word. Until 1001 is seeded, fall back to the running
         # direction (2012) so a heat/cool write still hits 1136/1135.
         return self.state.mode or self.state.get("active_mode")
+
+    def _setpoint_mirrors(self) -> list[int]:
+        return [int(x) for x in (self.profile.get("driver") or {}).get("setpoint_also_write") or []]
+
+    def _per_mode_register(self, mode: str | None) -> int | None:
+        key = _PER_MODE_SETPOINT.get(mode or "")
+        spec = profile_registers(self.profile).get(key or "") or {}
+        return int(spec["write"]) if "write" in spec else None
+
+    def extra_write_addrs(self, register: int) -> list[int]:
+        extra = super().extra_write_addrs(register)
+        # Panels that keep a working-setpoint word in page 1001 (EvoHeat: 1013)
+        # change it together with the selected mode's 1135-1137 word. A per-mode
+        # word for a mode that is not selected leaves it alone, like the panel.
+        if self._setpoint_mirrors() and register == self._per_mode_register(self._write_mode()):
+            extra.extend(self._setpoint_mirrors())
+        return extra
 
     def _flag_spec(self) -> dict[str, Any]:
         return ((self.profile.get("driver") or {}).get("settings") or {}).get("flags") or {}
@@ -319,6 +340,15 @@ class Pc1002BusDriver(HeatPumpDriver):
         # overlay so we do not keep showing the old mode's target while 2013 swaps.
         self.pending.discard("setpoint")
         await self._write_encoded("mode", *self.encoded_write("mode", mode))
+        # Except where the panel keeps a working-setpoint word (EvoHeat 1013): it
+        # copies the new mode's 1135-1137 into it in the same 1001 read.
+        per_mode = self._per_mode_register(mode)
+        target = self.settings.regs.get(per_mode) if per_mode is not None else None
+        if target is None:
+            return
+        for mirror in self._setpoint_mirrors():
+            self.pending.mark("setpoint", int(target), ttl_s=PAGE_TTL_S)
+            await self._emit_write(mirror, int(target))
 
     async def set_setpoint(self, celsius: float, which: str | None = None) -> None:
         if self.write_path == WRITE_PATH_DTU:

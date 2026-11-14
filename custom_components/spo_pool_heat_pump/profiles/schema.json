@@ -43,12 +43,23 @@
         "write_targets": { "type": "array", "items": { "type": "string" } },
         "default_write": { "type": "string" },
         "power_also_write": { "type": "array", "items": { "type": "integer" } },
+        "setpoint_also_write": { "type": "array", "items": { "type": "integer" } },
         "broadcast": {
           "type": "object",
           "properties": { "start": { "type": "integer" }, "qty": { "type": "integer" } }
         },
         "settings": { "type": "object" },
-        "detect": { "type": "object" },
+        "detect": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "any": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "all": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "zero": { "type": "array", "items": { "type": "integer" } },
+            "nonzero": { "type": "array", "items": { "type": "integer" } },
+            "fallback": { "type": "boolean" }
+          }
+        },
         "reads": { "type": "array" },
         "poll_slave": { "type": "integer" },
         "poll_interval": { "type": "integer" },

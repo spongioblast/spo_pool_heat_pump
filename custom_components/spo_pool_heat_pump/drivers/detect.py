@@ -17,15 +17,30 @@ class DetectFailed(Exception):
     """No CRC-valid broadcast and no probe answer."""
 
 
+def _heard_words(extra: dict[str, Any]) -> dict[int, int]:
+    words = dict(extra.get("broadcast") or {})
+    for key, reg in (("fw_display", 2089), ("fw_main", 2084), ("fw_mini", 2017)):
+        if extra.get(key) is not None:
+            words.setdefault(reg, int(extra[key]))
+    return words
+
+
 def detect_reason(profile_id: str | None, extra: dict[str, Any]) -> str:
     """One-line why the picker is pre-selected."""
-    from ..profiles import choice_map
+    from ..profiles import choice_map, detect_rule_matches, load_profile
 
     label = choice_map().get(profile_id or "", profile_id or "unknown")
-    if extra.get("fw_display") == 713 or extra.get("fw_main") == 772:
-        why = "Heard the 2001 broadcast; firmware 713/772 matches MIDA Cosma."
-    elif extra.get("fw_mini") and not extra.get("fw_display"):
-        why = "Mini firmware at register 2017 — PHNIX Mini layout."
+    rule: dict[str, Any] = {}
+    if profile_id:
+        try:
+            rule = (load_profile(profile_id).get("driver") or {}).get("detect") or {}
+        except Exception:  # noqa: BLE001 - unknown id: no rule, generic text
+            rule = {}
+    words = _heard_words(extra)
+    if "broadcast" in extra and detect_rule_matches(rule, words):
+        named = sorted({*(rule.get("any") or {}), *(rule.get("all") or {}), *(rule.get("nonzero") or [])})
+        shown = ", ".join(f"{reg}={words.get(int(reg), 0)}" for reg in named)
+        why = f"Heard the 2001 broadcast; firmware words {shown} match this profile."
     elif "broadcast" in extra:
         why = "Heard a 2001 broadcast with other firmware. Default is the Hayward-family map."
     elif extra.get("slave50"):
@@ -70,12 +85,9 @@ async def detect_profile(
         # slave 99 (DTU) traffic is bursty and would otherwise be missed.
         await asyncio.sleep(timeout)
         if "broadcast" in seen:
-            display, main, mini = seen.get("fw_display"), seen.get("fw_main"), seen.get("fw_mini")
-            if mini and not display:
-                return "phnix_mini_pc1002", seen
-            if display == 713 or main == 772:
-                return "mida_cosma_pc1002", seen
-            return "hayward_pc1002", seen
+            from ..profiles import match_broadcast_profile
+
+            return match_broadcast_profile(seen["broadcast"]) or "hayward_pc1002", seen
 
         await client.send(encode_fc03(50, 1011, 3))
         await asyncio.sleep(probe_wait)

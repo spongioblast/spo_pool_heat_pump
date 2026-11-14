@@ -28,6 +28,12 @@ display as well and keep the display's copy — the write was dropped. Setpoints
 No bit for page 1181 was ever observed; writes there are overlaid but only
 reach the board if it reads that page for another reason.
 
+Other panels use other bits. The EvoHeat Evo Fusion-i display (dump
+20261104_121425) raised ``0x0001`` for 1011 / 1012 / 1013, ``0x0004`` for quiet
+1076 and ``0x0041`` for a setpoint. A profile can override the table with
+``driver.settings.write_flags`` (``pages`` = default bit per page,
+``registers`` = per-word bit); the defaults below are the Cosma display.
+
 Never answer 1001/1091/1181 until that page is seeded — a zero page would wipe
 the menu. Pages are seeded from the board's own pushes (any slave) or from a
 FC03 read of the display.
@@ -60,6 +66,10 @@ MAX_READ_RETRIES = 2
 SYNC_ACK_S = 1.0
 
 _PAGES = (1001, 1091, 1181)
+_FLAGGED_PAGES = (1001, 1091)
+
+DEFAULT_PAGE_FLAGS = {1001: FLAG_READ_1001, 1091: FLAG_READ_1091}
+DEFAULT_REGISTER_FLAGS = {register: FLAG_SETPOINT for register in SETPOINT_REGS}
 
 
 class SettingsUnseeded(RuntimeError):
@@ -73,9 +83,25 @@ def _page_of(register: int) -> int | None:
     return None
 
 
+def _flag_tables(spec: dict | None) -> tuple[dict[int, int], dict[int, int]]:
+    spec = spec or {}
+    pages = dict(DEFAULT_PAGE_FLAGS)
+    pages.update({int(k): int(v) for k, v in (spec.get("pages") or {}).items()})
+    registers = dict(DEFAULT_REGISTER_FLAGS)
+    registers.update({int(k): int(v) for k, v in (spec.get("registers") or {}).items()})
+    return pages, registers
+
+
 class Slave2Responder:
-    def __init__(self, broadcast_start: int = 2001) -> None:
+    def __init__(self, broadcast_start: int = 2001, write_flags: dict | None = None) -> None:
         self._broadcast_start = broadcast_start
+        self._page_flag, self._register_flag = _flag_tables(write_flags)
+        # Every bit that makes the board read a page; served/stale bits clear per page.
+        self._page_bits = {start: self._page_flag.get(start, 0) for start in _FLAGGED_PAGES}
+        for register, bit in self._register_flag.items():
+            start = _page_of(register)
+            if start in self._page_bits:
+                self._page_bits[start] |= bit
         self.block_3001 = [0] * 30
         self._blocks: dict[int, list[int]] = {start: [0] * 90 for start in _PAGES}
         self._seeded: dict[int, bool] = {start: False for start in _PAGES}
@@ -187,11 +213,10 @@ class Slave2Responder:
             int(value) & 0xFFFF,
             time.monotonic() + OVERLAY_TTL_S,
         )
-        if start == 1001:
-            bit = FLAG_READ_1001
-        elif start == 1091:
-            bit = FLAG_SETPOINT if register in SETPOINT_REGS else FLAG_READ_1091
-        else:
+        if start not in self._page_bits:
+            return
+        bit = self._register_flag.get(register, self._page_flag.get(start, 0))
+        if not bit:
             return
         self.flags_3011 |= bit
         self._served &= ~bit
@@ -215,12 +240,10 @@ class Slave2Responder:
         Otherwise a rejected or expired write would keep the board re-reading our
         page every cycle forever."""
         live = {_page_of(register) for register in self._overlay}
-        if 1001 not in live:
-            self.flags_3011 &= ~FLAG_READ_1001
-            self._retry_bits &= ~FLAG_READ_1001
-        if 1091 not in live:
-            self.flags_3011 &= ~(FLAG_READ_1091 | FLAG_SETPOINT)
-            self._retry_bits &= ~(FLAG_READ_1091 | FLAG_SETPOINT)
+        for start, bits in self._page_bits.items():
+            if start not in live:
+                self.flags_3011 &= ~bits
+                self._retry_bits &= ~bits
 
     def _page(self, start: int) -> list[int]:
         self._expire()
@@ -272,8 +295,8 @@ class Slave2Responder:
             # every cycle and commits nothing until the bit drops (18 s on the live
             # bus, 2026-09-14 12:24). Remember what was served so the board's sync
             # can tell us whether the read actually got through.
-            bits = FLAG_READ_1001 if start == 1001 else (FLAG_READ_1091 | FLAG_SETPOINT)
-            if start in (1001, 1091):
+            bits = self._page_bits.get(start, 0)
+            if start in self._page_bits:
                 self._served = self.flags_3011 & bits
                 self._served_at = time.monotonic()
                 self.flags_3011 &= ~bits

@@ -58,5 +58,6 @@ def test_pc1002_registers_bind_to_protocol() -> None:
         for key, spec in profile_registers(profile).items():
             for addr in _addrs(spec):
                 _check_addr(ident, key, addr, spec, verified_only)
-        for addr in profile.get("driver", {}).get("power_also_write") or []:
-            _check_addr(ident, "power_also_write", int(addr), {}, verified_only)
+        for key in ("power_also_write", "setpoint_also_write"):
+            for addr in profile.get("driver", {}).get(key) or []:
+                _check_addr(ident, key, int(addr), {}, verified_only)

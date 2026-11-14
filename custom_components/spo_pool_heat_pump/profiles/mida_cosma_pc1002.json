@@ -35,8 +35,7 @@
     "default_write": "slave2",
     "power_also_write": [1014],
     "detect": {
-      "fw_display": 713,
-      "fw_main": 772
+      "any": { "2089": 713, "2084": 772 }
     },
     "broadcast": {
       "start": 2001,

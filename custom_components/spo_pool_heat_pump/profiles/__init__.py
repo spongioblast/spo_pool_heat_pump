@@ -279,6 +279,69 @@ def profiles_for_driver(driver: str) -> list[dict[str, Any]]:
     return [p for p in iter_profiles() if p["driver"]["type"] == driver]
 
 
+DETECT_KEYS = ("any", "all", "zero", "nonzero", "fallback")
+
+
+def detect_rule_matches(rule: dict[str, Any], words: dict[int, int]) -> bool:
+    """``driver.detect`` against one heard broadcast. A missing word counts as 0.
+
+    ``any`` / ``all``: {register: value}; ``zero`` / ``nonzero``: [register].
+    ``fallback`` rules never match here — they win only when nothing else did.
+    """
+    if not rule or rule.get("fallback"):
+        return False
+    word = lambda reg: int(words.get(int(reg), 0))  # noqa: E731
+    checks = 0
+    if rule.get("any"):
+        checks += 1
+        if not any(word(reg) == int(val) for reg, val in rule["any"].items()):
+            return False
+    for reg, val in (rule.get("all") or {}).items():
+        checks += 1
+        if word(reg) != int(val):
+            return False
+    for reg in rule.get("zero") or []:
+        if word(reg) != 0:
+            return False
+    for reg in rule.get("nonzero") or []:
+        checks += 1
+        if word(reg) == 0:
+            return False
+    # A rule made only of "zero" words would match an all-zero frame.
+    return checks > 0
+
+
+def _detect_specificity(rule: dict[str, Any]) -> int:
+    return (
+        (1 if rule.get("any") else 0)
+        + len(rule.get("all") or {})
+        + len(rule.get("zero") or [])
+        + len(rule.get("nonzero") or [])
+    )
+
+
+def match_broadcast_profile(words: dict[int, int], start: int = 2001) -> str | None:
+    """Profile id for a heard ``start``×N broadcast, from each profile's ``driver.detect``.
+
+    The most specific matching rule wins; with no match, the ``fallback`` profile.
+    """
+    matches: list[tuple[int, str]] = []
+    fallback: str | None = None
+    for profile in profiles_for_driver("pc1002_bus"):
+        driver = profile["driver"]
+        if int((driver.get("broadcast") or {}).get("start", 2001)) != start:
+            continue
+        rule = driver.get("detect") or {}
+        pid = profile["identity"]["id"]
+        if rule.get("fallback"):
+            fallback = fallback or pid
+        elif detect_rule_matches(rule, words):
+            matches.append((_detect_specificity(rule), pid))
+    if matches:
+        return sorted(matches, key=lambda m: (-m[0], m[1]))[0][1]
+    return fallback
+
+
 def validate_profile(data: dict[str, Any]) -> None:
     leftover = [k for k in FORBIDDEN_TOP if k in data]
     if leftover:
@@ -319,6 +382,10 @@ def validate_profile(data: dict[str, Any]) -> None:
         broadcast = (data.get("driver") or {}).get("broadcast") or {}
         if "start" not in broadcast or "qty" not in broadcast:
             raise ProfileError("pc1002_bus missing driver.broadcast start/qty")
+        rule = data["driver"].get("detect") or {}
+        unknown = set(rule) - set(DETECT_KEYS)
+        if not rule or unknown:
+            raise ProfileError(f"pc1002_bus driver.detect needs {DETECT_KEYS}, got {sorted(rule)}")
         if menu and not menu.get("pages"):
             raise ProfileError("service_menu missing pages")
 

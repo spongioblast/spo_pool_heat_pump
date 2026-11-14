@@ -21,6 +21,7 @@ The Aqua Temp **phone app** does not prove this integration will work. The outdo
 | **MIDA Cosma** 13 / 20 / 28 / 35, **Azuro**, **Mountfield** | **Verified** on a live Cosma | MIDA Cosma |
 | Hayward, Oasis, Warmpool, ECPI, irriPool | Same Cosma-style bus, not live-tested here | Hayward |
 | PHNIX Mini / SuperMini / SpecialLine, Thermotec | Shipped map, not live-tested | PHNIX Mini |
+| **EvoHeat Evo Fusion-i** | Mapped from a bus dump, writes not live-tested | EvoHeat Evo Fusion-i |
 | Fairland / Norsup CN13 | Shipped map, not live-tested. Polled, slave **50** (menu H37) | Fairland CN13 |
 | Fairland IPS Pro / InverX / IPHCR | Shipped map, not live-tested. Polled, slave **1** | Fairland IPS Pro |
 | Not listed, or setup cannot pick a profile | Capture only — no decode, no write | **Unknown heat pump — dump only** |

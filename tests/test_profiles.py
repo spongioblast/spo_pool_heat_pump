@@ -135,6 +135,7 @@ def test_all_profiles_validate() -> None:
         "mida_cosma_pc1002",
         "hayward_pc1002",
         "phnix_mini_pc1002",
+        "evoheat_evo_fusion_i_pc1002",
         "fairland_pc1004_cn13",
         "fairland_ips_pro_coils",
         "unknown_dump_only",

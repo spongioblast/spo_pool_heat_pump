@@ -49,11 +49,12 @@ def convert_profile(raw: dict) -> dict:
     driver = dict(raw["driver"])
     if "display" in (driver.get("detect") or {}):
         det = dict(driver["detect"])
+        words = {}
         if "display" in det:
-            det["fw_display"] = det.pop("display")
+            words["2089"] = int(det.pop("display"))
         if "main" in det:
-            det["fw_main"] = det.pop("main")
-        driver["detect"] = det
+            words["2084"] = int(det.pop("main"))
+        driver["detect"] = {"any": words}
     if raw["driver"]["type"] == "pc1002_bus" and raw.get("installer"):
         inst = raw["installer"]
         pages = list(inst.get("pages") or [])

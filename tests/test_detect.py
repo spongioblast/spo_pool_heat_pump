@@ -84,6 +84,36 @@ def test_detect_hayward_other_firmware() -> None:
     assert profile == "hayward_pc1002"
 
 
+def test_detect_evoheat_from_firmware() -> None:
+    client = FakeClient(listen=[_broadcast(main=156)])
+    profile, _extra = asyncio.run(detect_profile(client, timeout=0.01, probe_wait=0.01))
+    assert profile == "evoheat_evo_fusion_i_pc1002"
+    assert "2084=156" in detect_reason(profile, _extra)
+
+
+def test_every_broadcast_fixture_detects_as_its_own_profile() -> None:
+    from spo_pool_heat_pump.modbus_rtu import hex_to_bytes
+    from spo_pool_heat_pump.profiles import match_broadcast_profile, profiles_for_driver
+
+    checked = 0
+    for profile in profiles_for_driver("pc1002_bus"):
+        for name, hex_s in (profile.get("fixtures") or {}).get("frames", {}).items():
+            if not name.startswith("broadcast"):
+                continue
+            parsed = parse_frame(hex_to_bytes(hex_s))
+            words = {parsed.start + i: v for i, v in enumerate(parsed.values)}
+            assert match_broadcast_profile(words) == profile["identity"]["id"], name
+            checked += 1
+    assert checked
+
+
+def test_one_fallback_profile() -> None:
+    from spo_pool_heat_pump.profiles import profiles_for_driver
+
+    fallbacks = [p["identity"]["id"] for p in profiles_for_driver("pc1002_bus") if p["driver"]["detect"].get("fallback")]
+    assert fallbacks == ["hayward_pc1002"]
+
+
 def test_detect_phnix_from_mini_fw() -> None:
     client = FakeClient(listen=[_broadcast(mini=100)])
     profile, _extra = asyncio.run(detect_profile(client, timeout=0.01, probe_wait=0.01))
