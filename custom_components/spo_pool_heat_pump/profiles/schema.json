@@ -53,8 +53,18 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "any": { "type": "object", "additionalProperties": { "type": "integer" } },
-            "all": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "any": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [{ "type": "integer" }, { "type": "array", "items": { "type": "integer" }, "minItems": 1 }]
+              }
+            },
+            "all": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [{ "type": "integer" }, { "type": "array", "items": { "type": "integer" }, "minItems": 1 }]
+              }
+            },
             "zero": { "type": "array", "items": { "type": "integer" } },
             "nonzero": { "type": "array", "items": { "type": "integer" } },
             "fallback": { "type": "boolean" }

@@ -29,7 +29,7 @@
     "power_also_write": [1014],
     "setpoint_also_write": [1013],
     "detect": {
-      "all": { "2084": 156 },
+      "all": { "2084": [156, 425] },
       "zero": [2089, 2017]
     },
     "broadcast": {

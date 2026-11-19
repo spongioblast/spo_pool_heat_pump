@@ -115,7 +115,7 @@ Detection: 5 s listen for a 2001×90 broadcast, then each `pc1002_bus` profile's
 | `zero` / `nonzero` | each listed register is / is not 0 |
 | `fallback` | `true` — used only when no other rule matched (Hayward) |
 
-The most specific match wins (more conditions first). Shipped: Cosma `{"any": {"2089": 713, "2084": 772}}`, Mini `{"nonzero": [2017], "zero": [2089]}`, EvoHeat `{"all": {"2084": 156}, "zero": [2089, 2017]}`. Name a broadcast fixture `broadcast_*` and the tests check it detects as its own profile. Every PC1002 profile must have a rule; exactly one is `fallback`. The user can always override the pick. Silent bus probes slave 50 FC03 1011×3, then slave 1 FC01 coil 0. If nothing matches, the picker suggests **dump only**. Old ids (`cosmo_pc1002`, `phnix_mini_rs485`, `fairland_legacy_coils`) still load.
+A value may be a list (`{"2084": [156, 425]}`): the word matches any of them. The most specific match wins (more conditions first). Shipped: Cosma `{"any": {"2089": 713, "2084": 772}}`, Mini `{"nonzero": [2017], "zero": [2089]}`, EvoHeat `{"all": {"2084": [156, 425]}, "zero": [2089, 2017]}`. Name a broadcast fixture `broadcast_*` and the tests check it detects as its own profile. Every PC1002 profile must have a rule; exactly one is `fallback`. The user can always override the pick. Silent bus probes slave 50 FC03 1011×3, then slave 1 FC01 coil 0. If nothing matches, the picker suggests **dump only**. Old ids (`cosmo_pc1002`, `phnix_mini_rs485`, `fairland_legacy_coils`) still load.
 
 ## Same bus, no extra JSON
 

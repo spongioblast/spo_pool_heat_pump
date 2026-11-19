@@ -285,20 +285,28 @@ DETECT_KEYS = ("any", "all", "zero", "nonzero", "fallback")
 def detect_rule_matches(rule: dict[str, Any], words: dict[int, int]) -> bool:
     """``driver.detect`` against one heard broadcast. A missing word counts as 0.
 
-    ``any`` / ``all``: {register: value}; ``zero`` / ``nonzero``: [register].
+    ``any`` / ``all``: {register: value or [values]}; ``zero`` / ``nonzero``: [register].
     ``fallback`` rules never match here — they win only when nothing else did.
     """
     if not rule or rule.get("fallback"):
         return False
-    word = lambda reg: int(words.get(int(reg), 0))  # noqa: E731
+
+    def word(reg: Any) -> int:
+        return int(words.get(int(reg), 0))
+
+    def is_(reg: Any, expected: Any) -> bool:
+        if isinstance(expected, list):
+            return word(reg) in {int(v) for v in expected}
+        return word(reg) == int(expected)
+
     checks = 0
     if rule.get("any"):
         checks += 1
-        if not any(word(reg) == int(val) for reg, val in rule["any"].items()):
+        if not any(is_(reg, val) for reg, val in rule["any"].items()):
             return False
     for reg, val in (rule.get("all") or {}).items():
         checks += 1
-        if word(reg) != int(val):
+        if not is_(reg, val):
             return False
     for reg in rule.get("zero") or []:
         if word(reg) != 0:

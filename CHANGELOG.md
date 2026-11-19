@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 — 2026-11-19
+
+- **EvoHeat target no longer drops to 0 °C** ([#4](https://github.com/spongioblast/spo_pool_heat_pump/issues/4)). The board also drives a device on slave 4 with FC16 1011×3 `[on, speed, 0]`; the settings cache took those as panel words, so 1013 (target) read 0 and 1012 (mode) read the speed. Writes to non-panel slaves are now ignored unless they are a whole settings page
+- EvoHeat detection also matches main firmware 2084 = 425. Detect rule values may be a list
+
 ## 1.2.0 — 2026-11-14
 
 - **EvoHeat Evo Fusion-i** profile (community, from a USB dump; writes not live-tested). Same 2001×90 broadcast and slave-2 slot as Cosma, but broadcast 2013 is always 0, so the target is read from page word 1013. Its display raises 3011 `0x0001` for power / mode / 1013 and `0x0004` for quiet, and changes 1013 together with 1135–1137; slave 2 does the same for this profile only. Detected by main firmware 2084 = 156

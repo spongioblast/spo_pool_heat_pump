@@ -91,6 +91,13 @@ def test_detect_evoheat_from_firmware() -> None:
     assert "2084=156" in detect_reason(profile, _extra)
 
 
+def test_detect_evoheat_firmware_425() -> None:
+    client = FakeClient(listen=[_broadcast(main=425)])
+    profile, extra = asyncio.run(detect_profile(client, timeout=0.01, probe_wait=0.01))
+    assert profile == "evoheat_evo_fusion_i_pc1002"
+    assert "2084=425" in detect_reason(profile, extra)
+
+
 def test_every_broadcast_fixture_detects_as_its_own_profile() -> None:
     from spo_pool_heat_pump.modbus_rtu import hex_to_bytes
     from spo_pool_heat_pump.profiles import match_broadcast_profile, profiles_for_driver

@@ -12,6 +12,7 @@ from ..modbus_rtu import RtuFrame, parse_frame
 
 SETTINGS_PAGES = (1001, 1091, 1181, 3001)
 MENU_PAGES = (1001, 1091, 1181)
+_PANEL_SLAVES = (0, 1, 2, 66, 99)
 
 
 def is_blank_menu_page(start: int, values: list[int]) -> bool:
@@ -61,11 +62,18 @@ class SettingsCache:
         return changed
 
     def absorb_frame(self, parsed: RtuFrame) -> bool:
+        # Other devices share the bus at overlapping addresses (EvoHeat: the
+        # board drives slave 4 with FC16 1011×3 [on, speed, 0]), so a write to
+        # a non-panel slave counts only if it is a whole settings page.
         if parsed.function == 16 and parsed.start is not None and parsed.values:
             if parsed.slave == 0 and parsed.start == self._broadcast_start:
                 return False
+            if parsed.slave not in _PANEL_SLAVES and parsed.start not in SETTINGS_PAGES:
+                return False
             return self.absorb_fc03_reply(parsed.start, parsed.values)
         if parsed.function == 6 and parsed.start is not None and parsed.values:
+            if parsed.slave not in _PANEL_SLAVES:
+                return False
             return self.put(parsed.start, parsed.values[0])
         if parsed.function == 3 and parsed.kind == "request" and parsed.start in SETTINGS_PAGES:
             self._pending = (parsed.slave, parsed.start, parsed.qty)
